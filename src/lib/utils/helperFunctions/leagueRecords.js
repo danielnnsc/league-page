@@ -263,7 +263,7 @@ const analyzeRosters = ({year, roster, regularSeason}) => {
  * @param {int} matchupData.startWeek
  * @param {Object[]} matchupData.matchupDifferentials
  * @param {int} matchupData.year
- * @param {bool} matchupData.isConsolation whether this is a consolation/toilet bowl bracket
+ * @param {bool} matchupData.isConsolation whether this is a consolation bracket (3rd/5th place or toilet bowl)
  * @returns {any}
  */
 const processMatchups = ({matchupWeek, seasonPointsRecord, record, startWeek, matchupDifferentials, year, isConsolation = false}) => {
@@ -382,7 +382,7 @@ const processPlayoffs = async ({curSeason, playoffRecords, year, week, rosters})
 	let matchupDifferentials = [];
 	let postSeasonData = {};
 
-	// process all the championship matches
+	// process all the championship matches (only count p==1 or p==undefined, exclude p==3 and p==5)
 	const champBracket = digestBracket({bracket: champs.bracket, playoffsStart, matchupDifferentials, postSeasonData, playoffRecords, playoffRounds, consolation: false, seasonPointsRecord, year});
 
 	postSeasonData = champBracket.postSeasonData;
@@ -394,7 +394,6 @@ const processPlayoffs = async ({curSeason, playoffRecords, year, week, rosters})
 	const consolationBracket = digestBracket({bracket: champs.consolations, playoffsStart, matchupDifferentials, postSeasonData, playoffRecords, playoffRounds, consolation: true, seasonPointsRecord, year});
 
 	// DON'T merge consolation bracket postSeasonData into the playoff records
-	// postSeasonData = consolationBracket.postSeasonData;
 	seasonPointsRecord = consolationBracket.seasonPointsRecord;
 	playoffRecords = consolationBracket.playoffRecords;
 	matchupDifferentials = consolationBracket.matchupDifferentials;
@@ -460,11 +459,28 @@ const digestBracket = ({bracket, playoffRecords, playoffRounds, matchupDifferent
 						points += newMatchup.points[k].reduce((t, nV) => t + nV, 0);
 					}
 					newMatchup.points = points;
-					matchupWeek.push(newMatchup);
+					
+					// Check if this is a 3rd or 5th place game (p == 3 or p == 5)
+					// These should be treated as consolation games
+					const isPlacementGame = matchup.p && (matchup.p == 3 || matchup.p == 5);
+					
+					// Only add to matchupWeek if it's NOT a placement game or if we're already in consolation mode
+					if (!isPlacementGame || consolation) {
+						matchupWeek.push(newMatchup);
+					}
 				}
 			}
 		}
-		const {sPR, mD, pSD} =  processMatchups({matchupWeek, seasonPointsRecord, record: playoffRecords, startWeek, matchupDifferentials, year, isConsolation: consolation})
+		
+		const {sPR, mD, pSD} = processMatchups({
+			matchupWeek, 
+			seasonPointsRecord, 
+			record: playoffRecords, 
+			startWeek, 
+			matchupDifferentials, 
+			year, 
+			isConsolation: consolation
+		});
 
 		// Only merge postSeasonData if this is NOT a consolation bracket
 		if (!consolation) {
