@@ -263,9 +263,10 @@ const analyzeRosters = ({year, roster, regularSeason}) => {
  * @param {int} matchupData.startWeek
  * @param {Object[]} matchupData.matchupDifferentials
  * @param {int} matchupData.year
+ * @param {bool} matchupData.isConsolation whether this is a consolation/toilet bowl bracket
  * @returns {any}
  */
-const processMatchups = ({matchupWeek, seasonPointsRecord, record, startWeek, matchupDifferentials, year}) => {
+const processMatchups = ({matchupWeek, seasonPointsRecord, record, startWeek, matchupDifferentials, year, isConsolation = false}) => {
 	let matchups = {};
 
 	// only used when building post season record
@@ -346,8 +347,8 @@ const processMatchups = ({matchupWeek, seasonPointsRecord, record, startWeek, ma
 		}
 		matchupDifferentials.push(matchupDifferential);
 
-		// handle post-season data
-		if(matchupKey.split(":")[0] == "PS") {
+		// handle post-season data - ONLY count wins/losses if NOT consolation bracket
+		if(matchupKey.split(":")[0] == "PS" && !isConsolation) {
             pSD[home.rosterID].wins = 1;
             pSD[home.rosterID].fptsFor = home.fpts;
             pSD[home.rosterID].fptsAgainst = away.fpts;
@@ -389,10 +390,11 @@ const processPlayoffs = async ({curSeason, playoffRecords, year, week, rosters})
 	playoffRecords = champBracket.playoffRecords;
 	matchupDifferentials = champBracket.matchupDifferentials;
 
-	// process all the consolation matches
+	// process all the consolation matches - but DON'T count them in playoff records
 	const consolationBracket = digestBracket({bracket: champs.consolations, playoffsStart, matchupDifferentials, postSeasonData, playoffRecords, playoffRounds, consolation: true, seasonPointsRecord, year});
 
-	postSeasonData = consolationBracket.postSeasonData;
+	// DON'T merge consolation bracket postSeasonData into the playoff records
+	// postSeasonData = consolationBracket.postSeasonData;
 	seasonPointsRecord = consolationBracket.seasonPointsRecord;
 	playoffRecords = consolationBracket.playoffRecords;
 	matchupDifferentials = consolationBracket.matchupDifferentials;
@@ -462,11 +464,13 @@ const digestBracket = ({bracket, playoffRecords, playoffRounds, matchupDifferent
 				}
 			}
 		}
-		const {sPR, mD, pSD} =  processMatchups({matchupWeek, seasonPointsRecord, record: playoffRecords, startWeek, matchupDifferentials, year})
+		const {sPR, mD, pSD} =  processMatchups({matchupWeek, seasonPointsRecord, record: playoffRecords, startWeek, matchupDifferentials, year, isConsolation: consolation})
 
-		postSeasonData = meshPostSeasonData(postSeasonData, pSD);
+		// Only merge postSeasonData if this is NOT a consolation bracket
+		if (!consolation) {
+			postSeasonData = meshPostSeasonData(postSeasonData, pSD);
+		}
 
-		postSeasonData = meshPostSeasonData(postSeasonData, pSD);
 		seasonPointsRecord = sPR;
 		matchupDifferentials = mD;
 	}
