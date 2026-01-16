@@ -727,7 +727,11 @@
                                 <RecordTeam {leagueTeamManagers} managerID={winPercentage.managerID} rosterID={winPercentage.rosterID} year={allTime ? winPercentage.year : prefix} />
                             </Cell>
                             <Cell>{winPercentage.percentage}%</Cell>
-                            <Cell>{winPercentage.wins}</Cell>
+                            <Cell>
+							  {#if winPercentage.managerID === "594978831853469696"}
+	                            {console.log("RENDERING Danny - wins:", winPercentage.wins, "losses:", winPercentage.losses)}
+		                        {/if}
+								{winPercentage.wins}</Cell>
                             {#if showTies}
                                 <Cell>{winPercentage.ties}</Cell>
                             {/if}
