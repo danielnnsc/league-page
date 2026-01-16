@@ -13,6 +13,58 @@
     let curGraph = 0;
 
     let iqOffset = 0;
+    let lossesOffset = 0; // 1 when Losses graph is shown (toilet bowl only)
+
+    // Sorting state for each table
+    let sortState = {
+        lineupIQ: { column: 'iq', direction: 'desc' },
+        winPct: { column: 'percentage', direction: 'desc' },
+        fpts: { column: 'fptsFor', direction: 'desc' },
+        transactions: { column: 'trades', direction: 'desc' }
+    };
+
+    // Generic sort function
+    const sortData = (data, column, direction) => {
+        return [...data].sort((a, b) => {
+            const aVal = a[column] ?? 0;
+            const bVal = b[column] ?? 0;
+            if (direction === 'asc') {
+                return aVal - bVal;
+            }
+            return bVal - aVal;
+        });
+    };
+
+    // Handle header click for sorting
+    const handleSort = (table, column) => {
+        if (sortState[table].column === column) {
+            // Toggle direction if same column
+            sortState[table].direction = sortState[table].direction === 'desc' ? 'asc' : 'desc';
+        } else {
+            // New column, default to descending
+            sortState[table].column = column;
+            sortState[table].direction = 'desc';
+        }
+        sortState = sortState; // Trigger reactivity
+    };
+
+    // Reset sort state when key changes
+    const resetSortState = (k) => {
+        sortState = {
+            lineupIQ: { column: 'iq', direction: 'desc' },
+            winPct: { column: 'percentage', direction: 'desc' },
+            fpts: { column: 'fptsFor', direction: 'desc' },
+            transactions: { column: 'trades', direction: 'desc' }
+        };
+    };
+    $: resetSortState(key);
+
+    // Sorted data arrays
+    $: sortedLineupIQs = sortData(lineupIQs, sortState.lineupIQ.column, sortState.lineupIQ.direction);
+    $: sortedWinPercentages = sortData(winPercentages, sortState.winPct.column, sortState.winPct.direction);
+    $: sortedFptsHistories = sortData(fptsHistories, sortState.fpts.column, sortState.fpts.direction);
+    $: sortedTransactions = sortData(transactions, sortState.transactions.column, sortState.transactions.direction);
+
     let tables = [
         "Win Percentages",
         "Points",
@@ -22,50 +74,74 @@
     const year = allTime ? null : prefix;
 
     const changeTable = (newGraph) => {
-        switch (newGraph) {
-            case 0 - iqOffset:
-            case (4 + (99 * iqOffset)):
+        // Graph indices (when all present): IQ(0), Wins(1), Losses(2)*, WinPct(3), FPts(4), PotPts(5), Trades(6), Waivers(7)
+        // * Losses only for toilet bowl
+        // iqOffset removes IQ, lossesOffset accounts for Losses being added
+        const adjustedGraph = newGraph + iqOffset - lossesOffset;
+
+        switch (adjustedGraph) {
+            case 0: // IQ graph -> Lineup IQs table
                 curTable = 0;
                 break;
-            case 1 - iqOffset:
-            case 2 - iqOffset:
-                curTable = 1 - iqOffset;
+            case 1: // Wins graph -> Win Percentages table
+            case 2: // WinPct graph -> Win Percentages table
+                curTable = iqOffset ? 0 : 1;
                 break;
-            case 3 - iqOffset:
-                curTable = 2 - iqOffset;
+            case 3: // FPts graph -> Points table
+                curTable = iqOffset ? 1 : 2;
                 break;
-            case 5 - (2 * iqOffset):
-            case 6 - (2 * iqOffset):
-                curTable = 3 - iqOffset;
+            case 4: // PotPts graph -> Lineup IQs table
+                curTable = 0;
+                break;
+            case 5: // Trades graph -> Transactions table
+            case 6: // Waivers graph -> Transactions table
+                curTable = iqOffset ? 2 : 3;
                 break;
             default:
                 curTable = 0;
                 break;
         }
+
+        // Handle Losses graph separately (toilet bowl) - maps to Win Percentages table
+        if (lossesOffset && newGraph === (iqOffset ? 1 : 2)) {
+            curTable = iqOffset ? 0 : 1;
+        }
     }
 
     const changeGraph = (newTable) => {
-        switch (newTable) {
-            case 0 - iqOffset:
-                if(curGraph == 0 || curGraph == 4) {
+        // Tables: Lineup IQs(0), Win Percentages(1), Points(2), Transactions(3)
+        // iqOffset removes Lineup IQs table
+        const adjustedTable = newTable + iqOffset;
+
+        switch (adjustedTable) {
+            case 0: // Lineup IQs table
+                if(curGraph == 0 || curGraph == (4 - iqOffset + lossesOffset)) {
                     break;
                 }
                 curGraph = 0;
                 break;
-            case 1 - iqOffset:
-                if(curGraph == 1 - iqOffset || curGraph == 2 - iqOffset) {
-                    break;
+            case 1: // Win Percentages table
+                {
+                    const winsIdx = 1 - iqOffset;
+                    const winPctIdx = 2 - iqOffset + lossesOffset;
+                    if(curGraph == winsIdx || curGraph == winPctIdx || (lossesOffset && curGraph == winsIdx + 1)) {
+                        break;
+                    }
+                    curGraph = winsIdx;
                 }
-                curGraph = 1 - iqOffset;
                 break;
-            case 2 - iqOffset:
-                curGraph = 3 - iqOffset;
+            case 2: // Points table
+                curGraph = 3 - iqOffset + lossesOffset;
                 break;
-            case 3 - iqOffset:
-                if(curGraph == 5 - (2 * iqOffset) || curGraph == 6 - (2 * iqOffset)) {
-                    break;
+            case 3: // Transactions table
+                {
+                    const tradesIdx = 5 - (2 * iqOffset) + lossesOffset;
+                    const waiversIdx = 6 - (2 * iqOffset) + lossesOffset;
+                    if(curGraph == tradesIdx || curGraph == waiversIdx) {
+                        break;
+                    }
+                    curGraph = tradesIdx;
                 }
-                curGraph = 5 - (2 * iqOffset);
                 break;
             default:
                 curGraph = 0;
@@ -100,6 +176,15 @@
             header: "Team Wins",
             field: "wins",
             short: "Wins"
+        }
+
+        const lossesGraph = {
+            stats: winPercentages,
+            x: "Losses",
+            stat: "",
+            header: "Team Losses",
+            field: "losses",
+            short: "Losses"
         }
 
         const winPercentagesGraph = {
@@ -143,6 +228,12 @@
             gs.push(generateGraph(lineupIQGraph, year));
         }
         gs.push(generateGraph(winsGraph, year, 5));
+        if(key == "toiletBowlData") {
+            lossesOffset = 1;
+            gs.push(generateGraph(lossesGraph, year, 5));
+        } else {
+            lossesOffset = 0;
+        }
         gs.push(generateGraph(winPercentagesGraph, year));
         gs.push(generateGraph(fptsHistoriesGraph, year));
         if(lineupIQs[0]?.potentialPoints) {
@@ -297,6 +388,21 @@
         cursor: pointer;
         line-height: 1.2em;
         padding-left: 8px;
+    }
+
+    :global(.sortableHeader) {
+        cursor: pointer;
+        user-select: none;
+    }
+
+    :global(.sortableHeader:hover) {
+        background-color: var(--headerHover, rgba(0,0,0,0.04));
+    }
+
+    .sortIndicator {
+        display: inline-block;
+        margin-left: 4px;
+        font-size: 0.8em;
     }
 
     :global(.differentialName) {
@@ -468,7 +574,7 @@
         <DataTable class="recordTable">
             <Head>
                 <Row class="rTableHeader">
-                    <Cell class="header headerPrimary" colspan=4>{prefix} {key == "playoffData" ? "Playoff " : ""}Single Week Scoring Records</Cell>
+                    <Cell class="header headerPrimary" colspan=4>{prefix} {key == "playoffData" ? "Playoff " : key == "toiletBowlData" ? "Toilet Bowl " : ""}Single Week Scoring Records</Cell>
                 </Row>
                 <Row>
                     <Cell class="header rank"></Cell>
@@ -496,7 +602,7 @@
         <DataTable class="recordTable">
             <Head>
                 <Row>
-                    <Cell class="header headerPrimary" colspan=4>{prefix} {key == "playoffData" ? "Playoff " : ""}Single Week Scoring Lows</Cell>
+                    <Cell class="header headerPrimary" colspan=4>{prefix} {key == "playoffData" ? "Playoff " : key == "toiletBowlData" ? "Toilet Bowl " : ""}Single Week Scoring Lows</Cell>
                 </Row>
                 <Row>
                     <Cell class="header rank"></Cell>
@@ -584,7 +690,7 @@
         <DataTable class="recordTable">
             <Head>
                 <Row>
-                    <Cell class="header headerPrimary" colspan=4>{prefix} Largest {key == "playoffData" ? "Playoff " : ""}Blowouts</Cell>
+                    <Cell class="header headerPrimary" colspan=4>{prefix} Largest {key == "playoffData" ? "Playoff " : key == "toiletBowlData" ? "Toilet Bowl " : ""}Blowouts</Cell>
                 </Row>
                 <Row>
                     <Cell class="header rank"></Cell>
@@ -622,7 +728,7 @@
         <DataTable class="recordTable">
             <Head>
                 <Row>
-                    <Cell class="header headerPrimary" colspan=4>{prefix} Narrowest {key == "playoffData" ? "Playoff " : ""}Wins</Cell>
+                    <Cell class="header headerPrimary" colspan=4>{prefix} Narrowest {key == "playoffData" ? "Playoff " : key == "toiletBowlData" ? "Toilet Bowl " : ""}Wins</Cell>
                 </Row>
                 <Row>
                     <Cell class="header rank"></Cell>
@@ -657,7 +763,7 @@
     {/if}
 </div>
 
-<h4>{prefix} {key == "playoffData" ? "Playoff " : ""}Rankings</h4>
+<h4>{prefix} {key == "playoffData" ? "Playoff " : key == "toiletBowlData" ? "Toilet Bowl " : ""}Rankings</h4>
 
 {#if graphs.length}
     <BarChart {graphs} bind:curGraph={curGraph} {leagueTeamManagers} />
@@ -671,22 +777,37 @@
                     <Head>
                         <Row>
                             <Cell class="header headerPrimary" colspan=5>
-                                {prefix} {key == "playoffData" ? "Playoff " : ""}Lineup IQ Rankings
+                                {prefix} {key == "playoffData" ? "Playoff " : key == "toiletBowlData" ? "Toilet Bowl " : ""}Lineup IQ Rankings
                                 <div class="subTitle">
                                     The percentage of potential points each manager has captured
                                 </div>
                             </Cell>
                         </Row>
                         <Row>
-                            <Cell class="header"></Cell>
+                            <Cell class="header">#</Cell>
                             <Cell class="header">Manager</Cell>
-                            <Cell class="header">Lineup IQ</Cell>
-                            <Cell class="header">Points</Cell>
-                            <Cell class="header">Potential Points</Cell>
+                            <Cell class="header sortableHeader" on:click={() => handleSort('lineupIQ', 'iq')}>
+                                Lineup IQ
+                                {#if sortState.lineupIQ.column === 'iq'}
+                                    <span class="sortIndicator">{sortState.lineupIQ.direction === 'desc' ? '▼' : '▲'}</span>
+                                {/if}
+                            </Cell>
+                            <Cell class="header sortableHeader" on:click={() => handleSort('lineupIQ', 'fpts')}>
+                                Points
+                                {#if sortState.lineupIQ.column === 'fpts'}
+                                    <span class="sortIndicator">{sortState.lineupIQ.direction === 'desc' ? '▼' : '▲'}</span>
+                                {/if}
+                            </Cell>
+                            <Cell class="header sortableHeader" on:click={() => handleSort('lineupIQ', 'potentialPoints')}>
+                                Potential Points
+                                {#if sortState.lineupIQ.column === 'potentialPoints'}
+                                    <span class="sortIndicator">{sortState.lineupIQ.direction === 'desc' ? '▼' : '▲'}</span>
+                                {/if}
+                            </Cell>
                         </Row>
                     </Head>
                     <Body>
-                        {#each lineupIQs as lineupIQ, ix}
+                        {#each sortedLineupIQs as lineupIQ, ix}
                             <Row>
                                 <Cell>{ix + 1}</Cell>
                                 <Cell class="cellName" on:click={() => gotoManager({year: lineupIQ.year || prefix, leagueTeamManagers, managerID: lineupIQ.managerID, rosterID: lineupIQ.rosterID})}>
@@ -706,21 +827,41 @@
             <DataTable class="rankingTable">
                 <Head>
                     <Row>
-                        <Cell class="header headerPrimary" colspan=6>{prefix} {key == "playoffData" ? "Playoff " : ""}Win Percentages Rankings</Cell>
+                        <Cell class="header headerPrimary" colspan=6>{prefix} {key == "playoffData" ? "Playoff " : key == "toiletBowlData" ? "Toilet Bowl " : ""}Win Percentages Rankings</Cell>
                     </Row>
                     <Row>
-                        <Cell class="header"></Cell>
+                        <Cell class="header">#</Cell>
                         <Cell class="header">Manager</Cell>
-                        <Cell class="header">Win %</Cell>
-                        <Cell class="header">Wins</Cell>
+                        <Cell class="header sortableHeader" on:click={() => handleSort('winPct', 'percentage')}>
+                            Win %
+                            {#if sortState.winPct.column === 'percentage'}
+                                <span class="sortIndicator">{sortState.winPct.direction === 'desc' ? '▼' : '▲'}</span>
+                            {/if}
+                        </Cell>
+                        <Cell class="header sortableHeader" on:click={() => handleSort('winPct', 'wins')}>
+                            Wins
+                            {#if sortState.winPct.column === 'wins'}
+                                <span class="sortIndicator">{sortState.winPct.direction === 'desc' ? '▼' : '▲'}</span>
+                            {/if}
+                        </Cell>
                         {#if showTies}
-                            <Cell class="header">Ties</Cell>
+                            <Cell class="header sortableHeader" on:click={() => handleSort('winPct', 'ties')}>
+                                Ties
+                                {#if sortState.winPct.column === 'ties'}
+                                    <span class="sortIndicator">{sortState.winPct.direction === 'desc' ? '▼' : '▲'}</span>
+                                {/if}
+                            </Cell>
                         {/if}
-                        <Cell class="header">Losses</Cell>
+                        <Cell class="header sortableHeader" on:click={() => handleSort('winPct', 'losses')}>
+                            Losses
+                            {#if sortState.winPct.column === 'losses'}
+                                <span class="sortIndicator">{sortState.winPct.direction === 'desc' ? '▼' : '▲'}</span>
+                            {/if}
+                        </Cell>
                     </Row>
                 </Head>
                 <Body>
-                    {#each winPercentages as winPercentage, ix (winPercentage.managerID + key)}
+                    {#each sortedWinPercentages as winPercentage, ix (winPercentage.managerID + key)}
                         <Row>
                             <Cell>{ix + 1}</Cell>
                             <Cell class="cellName" on:click={() => gotoManager({year: winPercentage.year || prefix, leagueTeamManagers, rosterID: winPercentage.rosterID, managerID: winPercentage.managerID})}>
@@ -743,19 +884,34 @@
                 <Head>
                     <Row>
                         <Cell class="header headerPrimary" colspan=5>
-                            {prefix} {key == "playoffData" ? "Playoff " : ""}Fantasy Points Rankings
+                            {prefix} {key == "playoffData" ? "Playoff " : key == "toiletBowlData" ? "Toilet Bowl " : ""}Fantasy Points Rankings
                         </Cell>
                     </Row>
                     <Row>
-                        <Cell class="header"></Cell>
+                        <Cell class="header">#</Cell>
                         <Cell class="header">Manager</Cell>
-                        <Cell class="header">Points For</Cell>
-                        <Cell class="header">Points Against</Cell>
-                        <Cell class="header">Points Per Game</Cell>
+                        <Cell class="header sortableHeader" on:click={() => handleSort('fpts', 'fptsFor')}>
+                            Points For
+                            {#if sortState.fpts.column === 'fptsFor'}
+                                <span class="sortIndicator">{sortState.fpts.direction === 'desc' ? '▼' : '▲'}</span>
+                            {/if}
+                        </Cell>
+                        <Cell class="header sortableHeader" on:click={() => handleSort('fpts', 'fptsAgainst')}>
+                            Points Against
+                            {#if sortState.fpts.column === 'fptsAgainst'}
+                                <span class="sortIndicator">{sortState.fpts.direction === 'desc' ? '▼' : '▲'}</span>
+                            {/if}
+                        </Cell>
+                        <Cell class="header sortableHeader" on:click={() => handleSort('fpts', 'fptsPerGame')}>
+                            Points Per Game
+                            {#if sortState.fpts.column === 'fptsPerGame'}
+                                <span class="sortIndicator">{sortState.fpts.direction === 'desc' ? '▼' : '▲'}</span>
+                            {/if}
+                        </Cell>
                     </Row>
                 </Head>
                 <Body>
-                    {#each fptsHistories as fptsHistory, ix}
+                    {#each sortedFptsHistories as fptsHistory, ix}
                         <Row>
                             <Cell>{ix + 1}</Cell>
                             <Cell class="cellName" on:click={() => gotoManager({year: fptsHistory.year || prefix, leagueTeamManagers, rosterID: fptsHistory.rosterID, managerID: fptsHistory.managerID})}>
@@ -779,14 +935,24 @@
                         </Cell>
                     </Row>
                     <Row>
-                        <Cell class="header"></Cell>
+                        <Cell class="header">#</Cell>
                         <Cell class="header">Manager</Cell>
-                        <Cell class="header">Trades</Cell>
-                        <Cell class="header">Waivers</Cell>
+                        <Cell class="header sortableHeader" on:click={() => handleSort('transactions', 'trades')}>
+                            Trades
+                            {#if sortState.transactions.column === 'trades'}
+                                <span class="sortIndicator">{sortState.transactions.direction === 'desc' ? '▼' : '▲'}</span>
+                            {/if}
+                        </Cell>
+                        <Cell class="header sortableHeader" on:click={() => handleSort('transactions', 'waivers')}>
+                            Waivers
+                            {#if sortState.transactions.column === 'waivers'}
+                                <span class="sortIndicator">{sortState.transactions.direction === 'desc' ? '▼' : '▲'}</span>
+                            {/if}
+                        </Cell>
                     </Row>
                 </Head>
                 <Body>
-                    {#each transactions as transaction, ix}
+                    {#each sortedTransactions as transaction, ix}
                         <Row>
                             <Cell>{ix + 1}</Cell>
                             <Cell class="cellName" on:click={() => gotoManager({year: transaction.year || prefix, leagueTeamManagers, rosterID: transaction.rosterID, managerID: transaction.managerID})}>

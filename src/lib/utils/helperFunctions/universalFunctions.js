@@ -216,7 +216,7 @@ export const getAvatarFromTeamManagers = (teamManagers, rosterID, year) => {
     if(roster == null) {
         return QUESTION;
     }
-    return roster.team?.avatar;
+    return roster.team?.avatar || QUESTION;
 }
 
 export const getTeamNameFromTeamManagers = (teamManagers, rosterID, year) => {

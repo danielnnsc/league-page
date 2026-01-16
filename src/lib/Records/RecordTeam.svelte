@@ -5,8 +5,11 @@
 
     let user = null;
 
-    if(managerID) {
+    // Reactive: update user when managerID or leagueTeamManagers changes
+    $: if(managerID && leagueTeamManagers?.users) {
         user = leagueTeamManagers.users[managerID];
+    } else {
+        user = null;
     }
 </script>
 
@@ -63,7 +66,7 @@
 
 <div class="recordTeam">
     {#if user}
-        <img alt="team avatar" class="teamAvatar{compressed ? " compressed" : ""}" src="{`https://sleepercdn.com/avatars/thumbs/${user.avatar}`}" />
+        <img alt="team avatar" class="teamAvatar{compressed ? " compressed" : ""}" src="{user.avatar ? `https://sleepercdn.com/avatars/thumbs/${user.avatar}` : 'managers/question.jpg'}" />
     {:else if rosterID}
         <img alt="team avatar" class="teamAvatar{compressed ? " compressed" : ""}" src="{getAvatarFromTeamManagers(leagueTeamManagers, rosterID, year)}" />
     {/if}

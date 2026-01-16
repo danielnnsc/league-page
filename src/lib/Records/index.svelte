@@ -107,6 +107,9 @@
             <Button class="selectionButtons" on:click={() => key = "playoffData"} variant="{key == "playoffData" ? "raised" : "outlined"}">
                 <Label>Playoffs</Label>
             </Button>
+            <Button class="selectionButtons" on:click={() => key = "toiletBowlData"} variant="{key == "toiletBowlData" ? "raised" : "outlined"}">
+                <Label>Toilet Bowl</Label>
+            </Button>
         </Group>
         <br />
         <Group variant="outlined">

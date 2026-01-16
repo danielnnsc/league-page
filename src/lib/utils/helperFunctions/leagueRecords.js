@@ -26,7 +26,7 @@ export const getLeagueRecords = async (refresh = false) => {
 	if(!refresh && browser) {
 		let localRecords = await JSON.parse(localStorage.getItem("records"));
 		// check if transactions have been saved to localStorage before
-		if(localRecords && localRecords.playoffData) {
+		if(localRecords && localRecords.playoffData && localRecords.toiletBowlData) {
 			localRecords.stale = true;
 			return localRecords;
 		}
@@ -62,6 +62,10 @@ export const getLeagueRecords = async (refresh = false) => {
 	// necessary to display playoff records
 	let playoffRecords = new Records();
 
+	// toiletBowlRecords is a Records class that stores all the data
+	// necessary to display toilet bowl (loser bracket) records
+	let toiletBowlRecords = new Records();
+
 	// loop through each season until the previous_league_id becomes null (or in some cases 0)
 	while(curSeason && curSeason != 0) {
 		const [rosterRes, leagueData] = await waitForAll(
@@ -87,7 +91,14 @@ export const getLeagueRecords = async (refresh = false) => {
 		const pS = await processPlayoffs({year, curSeason, week, playoffRecords, rosters})
 
 		if(pS) {
-			playoffRecords = pS; // update the regular season records
+			playoffRecords = pS; // update the playoff records
+		}
+
+		// toilet bowl (loser bracket) data
+		const tB = await processToiletBowl({year, curSeason, week, toiletBowlRecords, rosters})
+
+		if(tB) {
+			toiletBowlRecords = tB; // update the toilet bowl records
 		}
 
 		lastYear = year;
@@ -101,14 +112,18 @@ export const getLeagueRecords = async (refresh = false) => {
 
 	playoffRecords.currentYear = regularSeason.currentYear;
 	playoffRecords.lastYear = regularSeason.lastYear;
+	toiletBowlRecords.currentYear = regularSeason.currentYear;
+	toiletBowlRecords.lastYear = regularSeason.lastYear;
 
 	regularSeason.finalizeAllTimeRecords({currentYear, lastYear});
 	playoffRecords.finalizeAllTimeRecords({currentYear, lastYear});
-	
+	toiletBowlRecords.finalizeAllTimeRecords({currentYear, lastYear});
+
 	const regularSeasonData = regularSeason.returnRecords()
 	const playoffData = playoffRecords.returnRecords()
+	const toiletBowlData = toiletBowlRecords.returnRecords()
 
-	const recordsData = {regularSeasonData, playoffData};
+	const recordsData = {regularSeasonData, playoffData, toiletBowlData};
 
     if(browser) {
         // update localStorage
@@ -439,6 +454,155 @@ const processPlayoffs = async ({curSeason, playoffRecords, year, week, rosters})
 	}
 	
 	return playoffRecords;
+}
+
+const processToiletBowl = async ({curSeason, toiletBowlRecords, year, week, rosters}) => {
+	const {
+		playoffsStart,
+		loserRounds,
+		losers,
+	} = await getBrackets(curSeason);
+
+	if(week <= playoffsStart || !year || !losers?.bracket || losers.bracket.length === 0) {
+		return null;
+	}
+
+	let seasonPointsRecord = [];
+	let matchupDifferentials = [];
+	let postSeasonData = {};
+
+	// Process only the main loser bracket matches, excluding 8th and 10th place games
+	// NOTE: In toilet bowl, LOSING advances you and WINNING eliminates you to consolation
+	// We don't process losers.consolations because those are teams that WON and got knocked out
+	const toiletBracket = digestToiletBowlBracket({bracket: losers.bracket, playoffsStart, matchupDifferentials, postSeasonData, toiletBowlRecords, loserRounds, seasonPointsRecord, year});
+
+	postSeasonData = toiletBracket.postSeasonData;
+	seasonPointsRecord = toiletBracket.seasonPointsRecord;
+	toiletBowlRecords = toiletBracket.toiletBowlRecords;
+	matchupDifferentials = toiletBracket.matchupDifferentials;
+
+	for(const rosterID in postSeasonData) {
+		const pSD = postSeasonData[rosterID];
+
+		// Skip rosters that don't exist in this season's roster data
+		if(!rosters[rosterID]) {
+			continue;
+		}
+
+		// Skip rosters that have no games played (no wins, losses, or ties)
+		if(pSD.wins === 0 && pSD.losses === 0 && pSD.ties === 0) {
+			continue;
+		}
+
+		// Skip rosters with no points (shouldn't be in toilet bowl data)
+		if(!pSD.fptsFor || pSD.fptsFor === 0) {
+			continue;
+		}
+
+		const fptsPerGame = round(pSD.fptsFor / (pSD.wins + pSD.losses + pSD.ties));
+		pSD.fptsPerGame = fptsPerGame;
+		pSD.year = year;
+		pSD.rosterID = rosterID;
+
+		const managers = getManagers(rosters[rosterID]);
+
+		// add season long points entry
+		toiletBowlRecords.addSeasonLongPoints({
+			fpts: pSD.fptsFor,
+			fptsPerGame,
+			year,
+			rosterID: rosterID,
+		})
+
+		// update the manager records for this roster ID
+		toiletBowlRecords.updateManagerRecord(managers, pSD);
+	}
+
+	// sort matchup differentials
+	const [biggestBlowouts, closestMatchups] = sortHighAndLow(matchupDifferentials, 'differential')
+
+	// sort season point records
+	const [seasonPointsHighs, seasonPointsLows] = sortHighAndLow(seasonPointsRecord, 'fpts')
+
+	// add matchupDifferentials to the all time records
+	toiletBowlRecords.addAllTimeMatchupDifferentials(matchupDifferentials);
+
+	if(seasonPointsHighs.length > 0) {
+		toiletBowlRecords.addSeasonWeekRecord({
+			year,
+			biggestBlowouts,
+			closestMatchups,
+			seasonPointsLows,
+			seasonPointsHighs,
+		});
+	}
+
+	return toiletBowlRecords;
+}
+
+const digestToiletBowlBracket = ({bracket, toiletBowlRecords, loserRounds, matchupDifferentials, postSeasonData, seasonPointsRecord, playoffsStart, year}) => {
+	for(let i = 0; i < bracket.length; i++) {
+		// Skip empty rounds (can happen in consolation brackets)
+		if(!bracket[i] || bracket[i].length === 0) {
+			continue;
+		}
+
+		const startWeek = getToiletBowlWeek(i + (loserRounds - bracket.length), loserRounds, playoffsStart);
+		const matchupWeek = [];
+
+		for(let matchups of bracket[i]) {
+			// Loser bracket matchups may be nested, flatten them
+			matchups = Array.isArray(matchups) ? matchups.flat() : [matchups];
+
+			for(const matchup of matchups) {
+				if(matchup.r) {
+					const newMatchup = {...matchup}
+					let points = 0;
+					for(const k in newMatchup.points) {
+						points += newMatchup.points[k].reduce((t, nV) => t + nV, 0);
+					}
+					newMatchup.points = points;
+
+					// Filter out 8th and 10th place games (similar to how 5th place is excluded from playoffs)
+					if(matchup.p && (matchup.p == 8 || matchup.p == 10)) {
+						continue;
+					}
+
+					matchupWeek.push(newMatchup);
+				}
+			}
+		}
+
+		const {sPR, mD, pSD} = processMatchups({
+			matchupWeek,
+			seasonPointsRecord,
+			record: toiletBowlRecords,
+			startWeek,
+			matchupDifferentials,
+			year,
+			isConsolation: false  // Count wins/losses for toilet bowl
+		});
+
+		postSeasonData = meshPostSeasonData(postSeasonData, pSD);
+		seasonPointsRecord = sPR;
+		matchupDifferentials = mD;
+	}
+
+	return {postSeasonData, seasonPointsRecord, toiletBowlRecords, matchupDifferentials}
+}
+
+const getToiletBowlWeek = (i, loserRounds, playoffsStart) => {
+	switch (loserRounds - i) {
+		case 1:
+			return "Toilet Bowl";
+		case 2:
+			return "TB Semi-Finals"
+		case 3:
+			return "TB Quarter-Finals"
+
+		default:
+			return "TB Qualifiers";
+	}
 }
 
 const digestBracket = ({bracket, playoffRecords, playoffRounds, matchupDifferentials, postSeasonData, consolation, seasonPointsRecord, playoffsStart, year}) => {
