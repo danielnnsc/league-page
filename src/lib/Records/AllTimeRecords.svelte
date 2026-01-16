@@ -25,9 +25,7 @@
 
 
     const setRankingsData = (lRR) => {
-if(key === "594978831853469696") {
-    console.log("Danny's record being added:", leagueManagerRecord);
-}
+
         winPercentages = [];
         lineupIQs = [];
         fptsHistories = [];
@@ -45,6 +43,10 @@ if(key === "594978831853469696") {
                 ties: leagueManagerRecord.ties,
                 losses: leagueManagerRecord.losses,
             })
+
+            if(key === "594978831853469696") {
+                console.log("Danny's record being added:", leagueManagerRecord);
+            }
 
             let lineupIQ = {
                 managerID: key,
