@@ -24,7 +24,8 @@
     }
 
 
-    const setRankingsData = (lRR) => {
+    const setRankingsData = (lRR, k) => {
+        console.log("setRankingsData called with key:", k);
 
         winPercentages = [];
         lineupIQs = [];
@@ -92,7 +93,7 @@
     const dannyInArray = winPercentages.find(w => w.managerID === "594978831853469696");
     console.log("Danny in winPercentages array:", dannyInArray);
 
-    $:setRankingsData(leagueManagerRecords)
+    $:setRankingsData(leagueManagerRecords, key)
 </script>
 
 <RecordsAndRankings
