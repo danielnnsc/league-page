@@ -25,6 +25,9 @@
 
 
     const setRankingsData = (lRR) => {
+if(key === "594978831853469696") {
+    console.log("Danny's record being added:", leagueManagerRecord);
+}
         winPercentages = [];
         lineupIQs = [];
         fptsHistories = [];
