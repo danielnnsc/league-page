@@ -461,13 +461,17 @@ const digestBracket = ({bracket, playoffRecords, playoffRounds, matchupDifferent
 					newMatchup.points = points;
 					
 					// Check if this is a 3rd or 5th place game (p == 3 or p == 5)
-					// These should be treated as consolation games
+					// These should be excluded from playoff win/loss counting
 					const isPlacementGame = matchup.p && (matchup.p == 3 || matchup.p == 5);
 					
-					// Only add to matchupWeek if it's NOT a placement game or if we're already in consolation mode
-					if (!isPlacementGame || consolation) {
-						matchupWeek.push(newMatchup);
+					// Skip placement games when processing championship bracket for playoff records
+					// But still include them when processing for weekly stats (consolation mode)
+					if (isPlacementGame && !consolation) {
+						// Skip this matchup - don't count 3rd/5th place games in playoff records
+						continue;
 					}
+					
+					matchupWeek.push(newMatchup);
 				}
 			}
 		}
