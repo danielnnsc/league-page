@@ -88,6 +88,11 @@
         fptsHistories.sort((a, b) => b.fptsFor - a.fptsFor);
         tradesData.sort((a, b) => b.trades - a.trades);
         waiversData.sort((a, b) => b.waivers - a.waivers);
+
+
+        if(k === "playoffData") {
+    const danny = winPercentages.find(w => w.managerID === "594978831853469696");
+    console.log("After sorting, Danny in winPercentages for PLAYOFFS:", danny)
     }
 
     const dannyInArray = winPercentages.find(w => w.managerID === "594978831853469696");
