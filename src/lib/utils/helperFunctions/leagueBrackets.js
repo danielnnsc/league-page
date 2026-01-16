@@ -218,6 +218,7 @@ const generateMatchupData = (t, tFrom, {m, r, playoffMatchups, i, playoffType, w
         r,
         winners,
         fromWinners,
+        p,  // placement indicator (1=championship, 3=3rd place, 5=5th place)
     }
 
     if(t) {

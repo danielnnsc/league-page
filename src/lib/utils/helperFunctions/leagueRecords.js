@@ -382,7 +382,7 @@ const processPlayoffs = async ({curSeason, playoffRecords, year, week, rosters})
 	let matchupDifferentials = [];
 	let postSeasonData = {};
 
-	// process all the championship matches (only count p==1 or p==undefined, exclude p==3 and p==5)
+	// process all the championship matches (count p==1 or p==undefined, exclude p==5; 3rd place handled in consolation)
 	const champBracket = digestBracket({bracket: champs.bracket, playoffsStart, matchupDifferentials, postSeasonData, playoffRecords, playoffRounds, consolation: false, seasonPointsRecord, year});
 
 	postSeasonData = champBracket.postSeasonData;
@@ -449,7 +449,7 @@ const digestBracket = ({bracket, playoffRecords, playoffRounds, matchupDifferent
 		for(let matchups of bracket[i]) {
 			if(consolation) {
 				// consolation matchups are nested within an additional array, we need to flatten them before proceeding
-				matchups.flat();
+				matchups = matchups.flat();
 			}
 			for(const matchup of matchups) {
 				if(matchup.r) {
@@ -460,14 +460,14 @@ const digestBracket = ({bracket, playoffRecords, playoffRounds, matchupDifferent
 					}
 					newMatchup.points = points;
 					
-					// Check if this is a 3rd or 5th place game (p == 3 or p == 5)
-					// These should be excluded from playoff win/loss counting
-					const isPlacementGame = matchup.p && (matchup.p == 3 || matchup.p == 5);
-					
-					// Skip placement games when processing championship bracket for playoff records
+					// Check if this is a 5th place game (p == 5)
+					// 3rd place games (p == 3) are counted in playoff stats
+					const isPlacementGame = matchup.p && matchup.p == 5;
+
+					// Skip 5th place games when processing championship bracket for playoff records
 					// But still include them when processing for weekly stats (consolation mode)
 					if (isPlacementGame && !consolation) {
-						// Skip this matchup - don't count 3rd/5th place games in playoff records
+						// Skip this matchup - don't count 5th place games in playoff records
 						continue;
 					}
 					
@@ -476,13 +476,18 @@ const digestBracket = ({bracket, playoffRecords, playoffRounds, matchupDifferent
 			}
 		}
 		
+		// Separate 3rd place games from other consolation games
+		const thirdPlaceGames = consolation ? matchupWeek.filter(m => m.p == 3) : [];
+		const otherGames = consolation ? matchupWeek.filter(m => m.p != 3) : matchupWeek;
+
+		// Process regular games (or all games if not consolation)
 		const {sPR, mD, pSD} = processMatchups({
-			matchupWeek, 
-			seasonPointsRecord, 
-			record: playoffRecords, 
-			startWeek, 
-			matchupDifferentials, 
-			year, 
+			matchupWeek: otherGames,
+			seasonPointsRecord,
+			record: playoffRecords,
+			startWeek,
+			matchupDifferentials,
+			year,
 			isConsolation: consolation
 		});
 
@@ -491,8 +496,24 @@ const digestBracket = ({bracket, playoffRecords, playoffRounds, matchupDifferent
 			postSeasonData = meshPostSeasonData(postSeasonData, pSD);
 		}
 
-		seasonPointsRecord = sPR;
-		matchupDifferentials = mD;
+		// Process 3rd place games separately - count them in playoff records
+		if (thirdPlaceGames.length > 0) {
+			const thirdPlaceResult = processMatchups({
+				matchupWeek: thirdPlaceGames,
+				seasonPointsRecord: sPR,
+				record: playoffRecords,
+				startWeek: "3rd Place",
+				matchupDifferentials: mD,
+				year,
+				isConsolation: false  // Count 3rd place games!
+			});
+			postSeasonData = meshPostSeasonData(postSeasonData, thirdPlaceResult.pSD);
+			seasonPointsRecord = thirdPlaceResult.sPR;
+			matchupDifferentials = thirdPlaceResult.mD;
+		} else {
+			seasonPointsRecord = sPR;
+			matchupDifferentials = mD;
+		}
 	}
 
 	return {postSeasonData, seasonPointsRecord, playoffRecords, matchupDifferentials}
