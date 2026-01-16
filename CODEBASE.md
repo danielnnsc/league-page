@@ -142,7 +142,7 @@ When switching between data sources (e.g., regular season vs playoffs), add keys
 
 1. **Regular Season**: Processed in `processRegularSeason()` - uses roster settings for wins/losses
 2. **Playoffs**: Processed in `processPlayoffs()` - calculates wins/losses from bracket matchups
-3. **Consolation Games**: Tracked separately, not counted in playoff records (3rd/5th place games excluded)
+3. **Consolation Games**: Tracked separately - 3rd place games ARE counted in playoff records, 5th place games are excluded
 
 ## Local Storage Caching
 
@@ -172,3 +172,26 @@ npm run preview      # Preview production build
 The app is deployed on Vercel. Push to master to trigger automatic deployment.
 
 Live URL: https://fantasy-boiz.vercel.app/
+
+## Changelog
+
+### January 15, 2026
+
+**Bug Fixes:**
+- Fixed playoff records table not updating when switching between Regular Season and Playoffs tabs
+  - Root cause: Svelte reactivity wasn't tracking all dependencies in `setTransactionsAndGraphs`
+  - Solution: Added missing dependencies to reactive statement and keys to `{#each}` blocks
+- Fixed `matchups.flat()` not being assigned back in `digestBracket()`
+  - Root cause: `flat()` returns a new array but wasn't being assigned
+  - This caused consolation bracket matchups to not be processed correctly
+
+**New Features:**
+- 3rd place games now count toward playoff records
+  - Added `p` field to matchup data in `leagueBrackets.js` to identify placement games
+  - Modified `digestBracket()` to process 3rd place games (p==3) separately from other consolation games
+  - 5th place games (p==5) remain excluded from playoff stats
+
+**Infrastructure:**
+- Set up SSH authentication for GitHub
+- Changed Vercel URL from `league-page-seven-orcin.vercel.app` to `fantasy-boiz.vercel.app`
+- Created this CODEBASE.md documentation file
