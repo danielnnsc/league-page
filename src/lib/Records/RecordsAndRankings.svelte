@@ -157,7 +157,7 @@
         graphs = gs;
     }
 
-    const setTransactionsAndGraphs = (wD) => {
+    const setTransactionsAndGraphs = (wD, _winPercentages, _lineupIQs, _fptsHistories, _tradesData, _key) => {
         if(wD[0].rosterID) {
             for(let i = 1; i <= waiversData.length; i++) {
                 if(!tradesData.find(t => t.rosterID == i)) {
@@ -216,7 +216,7 @@
         tables = t
     }
 
-    $: transactions =  setTransactionsAndGraphs(waiversData)
+    $: transactions =  setTransactionsAndGraphs(waiversData, winPercentages, lineupIQs, fptsHistories, tradesData, key)
     $: changeTable(curGraph);
     $: changeGraph(curTable);
     $: setTables(lineupIQs)
@@ -720,18 +720,14 @@
                     </Row>
                 </Head>
                 <Body>
-                    {#each winPercentages as winPercentage, ix}
+                    {#each winPercentages as winPercentage, ix (winPercentage.managerID + key)}
                         <Row>
                             <Cell>{ix + 1}</Cell>
                             <Cell class="cellName" on:click={() => gotoManager({year: winPercentage.year || prefix, leagueTeamManagers, rosterID: winPercentage.rosterID, managerID: winPercentage.managerID})}>
                                 <RecordTeam {leagueTeamManagers} managerID={winPercentage.managerID} rosterID={winPercentage.rosterID} year={allTime ? winPercentage.year : prefix} />
                             </Cell>
                             <Cell>{winPercentage.percentage}%</Cell>
-                            <Cell>
-							  {#if winPercentage.managerID === "594978831853469696"}
-	                            {console.log("RENDERING Danny - wins:", winPercentage.wins, "losses:", winPercentage.losses)}
-		                        {/if}
-								{winPercentage.wins}</Cell>
+                            <Cell>{winPercentage.wins}</Cell>
                             {#if showTies}
                                 <Cell>{winPercentage.ties}</Cell>
                             {/if}

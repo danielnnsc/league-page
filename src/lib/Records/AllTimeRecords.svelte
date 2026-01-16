@@ -23,8 +23,6 @@
     }
 
     const setRankingsData = (lRR, k) => {
-        console.log("setRankingsData called with key:", k);
-
         winPercentages = [];
         lineupIQs = [];
         fptsHistories = [];
@@ -42,10 +40,6 @@
                 ties: leagueManagerRecord.ties,
                 losses: leagueManagerRecord.losses,
             })
-
-            if(key === "594978831853469696") {
-                console.log("Danny's record being added:", leagueManagerRecord);
-            }
 
             let lineupIQ = {
                 managerID: key,
@@ -85,14 +79,6 @@
         fptsHistories.sort((a, b) => b.fptsFor - a.fptsFor);
         tradesData.sort((a, b) => b.trades - a.trades);
         waiversData.sort((a, b) => b.waivers - a.waivers);
-
-        if(k === "playoffData") {
-            const danny = winPercentages.find(w => w.managerID === "594978831853469696");
-            console.log("After sorting, Danny in winPercentages for PLAYOFFS:", danny);
-        }
-
-        const dannyInArray = winPercentages.find(w => w.managerID === "594978831853469696");
-        console.log("Danny in winPercentages array:", dannyInArray);
     }
 
     $:setRankingsData(leagueManagerRecords, key)
