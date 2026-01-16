@@ -27,7 +27,7 @@
 
         const selectedLeagueData = lD[k];
 
-        leagueManagerRecords = selectedLeagueData.leagueManagerRecords;
+       leagueManagerRecords = {...selectedLeagueData.leagueManagerRecords};
       
         if(selectedLeagueData.leagueManagerRecords["594978831853469696"]) {
             console.log("In index.svelte, key:", k);
