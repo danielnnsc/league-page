@@ -171,4 +171,4 @@ npm run preview      # Preview production build
 
 The app is deployed on Vercel. Push to master to trigger automatic deployment.
 
-Live URL: https://league-page-seven-orcin.vercel.app/
+Live URL: https://fantasy-boiz.vercel.app/
