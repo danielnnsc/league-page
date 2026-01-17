@@ -208,8 +208,8 @@
 	const handlePeriodFilter = (e) => {
 		selectedPeriod = e.detail;
 		page = 0;
-		// Switch to "both" tab to show the filtered transactions
-		show = 'both';
+		// Switch to trades tab to show the filtered trades
+		show = 'trade';
 		updateUrl();
 	}
 
