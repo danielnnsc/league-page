@@ -161,6 +161,73 @@
 
 	$: playerSummary = computePlayerSummary(queryFiltered, query);
 
+	// Extract all unique players from transactions for autocomplete
+	const getPlayersInTransactions = (txns) => {
+		const playerSet = new Set();
+		const playerList = [];
+
+		for (const txn of txns) {
+			for (const move of txn.moves) {
+				for (const col of move) {
+					if (!col || col === 'origin' || !col.player) continue;
+					if (playerSet.has(col.player)) continue;
+					playerSet.add(col.player);
+
+					const p = players[col.player];
+					if (p) {
+						playerList.push({
+							id: col.player,
+							name: `${p.fn} ${p.ln}`,
+							pos: p.pos || '',
+							team: p.t || ''
+						});
+					}
+				}
+			}
+		}
+
+		return playerList.sort((a, b) => a.name.localeCompare(b.name));
+	}
+
+	$: playersInTransactions = getPlayersInTransactions(transactions);
+
+	// Autocomplete suggestions
+	let showSuggestions = false;
+
+	$: suggestions = query.trim().length >= 2
+		? playersInTransactions.filter(p =>
+			p.name.toLowerCase().includes(query.toLowerCase().trim())
+		).slice(0, 8)
+		: [];
+
+	const selectSuggestion = (playerName) => {
+		query = playerName;
+		showSuggestions = false;
+		page = 0;
+		updateUrl();
+	}
+
+	const handleSearchFocus = () => {
+		if (query.trim().length >= 2) {
+			showSuggestions = true;
+		}
+	}
+
+	const handleSearchBlur = () => {
+		// Delay to allow click on suggestion
+		setTimeout(() => {
+			showSuggestions = false;
+		}, 200);
+	}
+
+	const handleSearchInput = () => {
+		query = query.trimStart();
+		showSuggestions = query.trim().length >= 2;
+		if (query.trim() === oldQuery) return;
+		page = 0;
+		debounce(updateUrl);
+	}
+
 	// URL update helper
 	const updateUrl = () => {
 		if (!postUpdate) return;
@@ -314,11 +381,76 @@
 		width: 100%;
 		text-align: center;
 		margin: 0.5em 0;
+		position: relative;
+	}
+
+	.searchWrapper {
+		display: inline-block;
+		position: relative;
 	}
 
 	.clearPlaceholder {
 		width: 48px;
 		display: inline-block;
+	}
+
+	.suggestions {
+		position: absolute;
+		top: 100%;
+		left: 50%;
+		transform: translateX(-50%);
+		width: 280px;
+		max-height: 300px;
+		overflow-y: auto;
+		background-color: var(--fff);
+		border: 1px solid var(--ddd);
+		border-radius: 8px;
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+		z-index: 100;
+		margin-top: 4px;
+	}
+
+	.suggestionItem {
+		display: flex;
+		align-items: center;
+		gap: 0.5em;
+		padding: 0.6em 1em;
+		cursor: pointer;
+		border-bottom: 1px solid var(--eee);
+		transition: background-color 0.1s ease;
+	}
+
+	.suggestionItem:last-child {
+		border-bottom: none;
+	}
+
+	.suggestionItem:hover {
+		background-color: var(--f5f5);
+	}
+
+	.suggestionAvatar {
+		width: 32px;
+		height: 32px;
+		border-radius: 50%;
+		background-size: cover;
+		background-position: center;
+		background-color: var(--eee);
+		flex-shrink: 0;
+	}
+
+	.suggestionInfo {
+		flex: 1;
+		text-align: left;
+	}
+
+	.suggestionName {
+		font-weight: 500;
+		font-size: 0.9em;
+	}
+
+	.suggestionMeta {
+		font-size: 0.75em;
+		color: var(--g999);
 	}
 
 	.empty {
@@ -482,15 +614,32 @@
 	{#if show !== 'records'}
 		<div class="searchContainer">
 			<span class="clearPlaceholder" />
-			<Textfield
-				class="shaped-outlined"
-				variant="outlined"
-				bind:value={query}
-				label="Search for a player..."
-				on:input={() => search()}
-			>
-				<Icon class="material-icons" slot="leadingIcon">search</Icon>
-			</Textfield>
+			<div class="searchWrapper">
+				<Textfield
+					class="shaped-outlined"
+					variant="outlined"
+					bind:value={query}
+					label="Search for a player..."
+					on:input={handleSearchInput}
+					on:focus={handleSearchFocus}
+					on:blur={handleSearchBlur}
+				>
+					<Icon class="material-icons" slot="leadingIcon">search</Icon>
+				</Textfield>
+				{#if showSuggestions && suggestions.length > 0}
+					<div class="suggestions">
+						{#each suggestions as player}
+							<div class="suggestionItem" on:click={() => selectSuggestion(player.name)}>
+								<div class="suggestionAvatar" style="background-image: url({player.pos === 'DEF' ? `https://sleepercdn.com/images/team_logos/nfl/${player.id.toLowerCase()}.png` : `https://sleepercdn.com/content/nfl/players/thumb/${player.id}.jpg`}), url(https://sleepercdn.com/images/v2/icons/player_default.webp);"></div>
+								<div class="suggestionInfo">
+									<div class="suggestionName">{player.name}</div>
+									<div class="suggestionMeta">{player.pos}{player.team ? ` - ${player.team}` : ''}</div>
+								</div>
+							</div>
+						{/each}
+					</div>
+				{/if}
+			</div>
 			{#if query.length > 0}
 				<IconButton class="material-icons" on:click={() => clearSearch()}>clear</IconButton>
 			{:else}
