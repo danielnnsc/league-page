@@ -149,10 +149,57 @@ const digestTransactions = async ({transactionsData, currentSeason}) => {
 	// trades can be out of order because they are aded to sleeper when the offer is sent
 	// this sort puts everything in the correct order
 	const transactionOrder = transactionsData.sort((a,b) => b.status_updated - a.status_updated);
-	
+
+	// First pass: collect failed bids grouped by player and timestamp
+	const failedBids = {};
+	for(const transaction of transactionOrder) {
+		if(transaction.status !== 'failed') continue;
+		if(transaction.type === 'trade') continue;
+
+		const adds = transaction.adds;
+		if(!adds) continue;
+
+		for(const playerId in adds) {
+			const bid = transaction.settings?.waiver_bid || 0;
+			const rosterId = transaction.roster_ids[0];
+			const timestamp = transaction.status_updated;
+
+			// Group by player and approximate timestamp (within 1 hour = same waiver period)
+			const timeKey = Math.floor(timestamp / 3600000); // Group by hour
+			const key = `${playerId}_${timeKey}`;
+
+			if(!failedBids[key]) {
+				failedBids[key] = [];
+			}
+			failedBids[key].push({
+				rosterId,
+				bid,
+				timestamp
+			});
+		}
+	}
+
+	// Second pass: process successful transactions and attach competing bids
 	for(const transaction of transactionOrder) {
 		let {digestedTransaction, season, success} = digestTransaction({transaction, currentSeason});
 		if(!success) continue;
+
+		// For waiver transactions, find competing bids
+		if(digestedTransaction.type === 'waiver') {
+			const adds = transaction.adds;
+			if(adds) {
+				for(const playerId in adds) {
+					const timestamp = transaction.status_updated;
+					const timeKey = Math.floor(timestamp / 3600000);
+					const key = `${playerId}_${timeKey}`;
+
+					if(failedBids[key] && failedBids[key].length > 0) {
+						digestedTransaction.competingBids = failedBids[key].sort((a, b) => b.bid - a.bid);
+					}
+				}
+			}
+		}
+
 		transactions.push(digestedTransaction);
         if(!leagueTeamManagers.teamManagersMap[season]) {
             // the league may not have converted over yet

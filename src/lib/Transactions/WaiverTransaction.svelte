@@ -147,6 +147,46 @@
         margin-top: 0.7em;
     }
 
+    .competingBids {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.5em;
+        padding: 0.5em 1em;
+        background-color: var(--f5f5);
+        border-top: 1px solid var(--eee);
+        font-size: 0.75em;
+    }
+
+    .competingBidsLabel {
+        color: var(--g999);
+        font-style: italic;
+        width: 100%;
+        text-align: center;
+        margin-bottom: 0.25em;
+    }
+
+    .competingBid {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25em;
+        padding: 0.2em 0.5em;
+        background-color: var(--fff);
+        border: 1px solid var(--ddd);
+        border-radius: 12px;
+    }
+
+    .competingBidAvatar {
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+    }
+
+    .competingBidAmount {
+        color: #f57c00;
+        font-weight: 600;
+    }
+
     @media (max-width: 410px) {
         .player {
             flex-direction: column;
@@ -210,5 +250,17 @@
         <span class="date">
             {transaction.date}
         </span>
+        {#if transaction.competingBids && transaction.competingBids.length > 0}
+            <div class="competingBids">
+                <span class="competingBidsLabel">Other bids:</span>
+                {#each transaction.competingBids as bid}
+                    <span class="competingBid">
+                        <img class="competingBidAvatar" src="{getTeamFromTeamManagers(leagueTeamManagers, bid.rosterId, transaction.season).avatar}" alt="team" />
+                        <span>{getTeamFromTeamManagers(leagueTeamManagers, bid.rosterId, transaction.season).name}</span>
+                        <span class="competingBidAmount">${bid.bid}</span>
+                    </span>
+                {/each}
+            </div>
+        {/if}
     </div>
 </div>

@@ -203,6 +203,43 @@
 		opacity: 0.8;
 	}
 
+	.competingBids {
+		display: flex;
+		align-items: center;
+		gap: 0.4em;
+		flex-wrap: wrap;
+		padding-top: 0.4em;
+		border-top: 1px dashed var(--eee);
+		margin-top: 0.4em;
+	}
+
+	.competingLabel {
+		font-size: 0.75em;
+		color: var(--g999);
+		font-style: italic;
+	}
+
+	.competingBid {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.2em;
+		font-size: 0.75em;
+		padding: 0.15em 0.4em;
+		background-color: var(--f5f5);
+		border-radius: 10px;
+	}
+
+	.competingBid img {
+		width: 14px;
+		height: 14px;
+		border-radius: 50%;
+	}
+
+	.competingBid .amount {
+		color: #f57c00;
+		font-weight: 600;
+	}
+
 	@media (max-width: 500px) {
 		.teamName {
 			font-size: 0.8em;
@@ -258,5 +295,19 @@
 				<span class="item trade">+{summary.length - 6} more</span>
 			{/if}
 		</div>
+		{#if transaction.competingBids && transaction.competingBids.length > 0}
+			<div class="competingBids">
+				<span class="competingLabel">Other bids:</span>
+				{#each transaction.competingBids.slice(0, 4) as bid}
+					<span class="competingBid">
+						<img src="{getTeamFromTeamManagers(leagueTeamManagers, bid.rosterId, transaction.season).avatar}" alt="team" />
+						<span class="amount">${bid.bid}</span>
+					</span>
+				{/each}
+				{#if transaction.competingBids.length > 4}
+					<span class="competingBid">+{transaction.competingBids.length - 4}</span>
+				{/if}
+			</div>
+		{/if}
 	</div>
 </div>
