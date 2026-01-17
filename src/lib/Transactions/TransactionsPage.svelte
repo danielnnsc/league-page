@@ -516,7 +516,7 @@
 					</tr>
 				</thead>
 				<tbody>
-					{#each playerSummary.slice(0, 5) as team}
+					{#each playerSummary as team}
 						<tr>
 							<td>
 								<div class="teamCell">
