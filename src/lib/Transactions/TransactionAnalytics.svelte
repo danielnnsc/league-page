@@ -20,6 +20,10 @@
 		dispatch('periodFilter', period);
 	}
 
+	const handlePlayerClick = (playerName, transactionType) => {
+		dispatch('playerFilter', { playerName, transactionType });
+	}
+
 	// Generate graph data for trade frequency
 	const generateFrequencyGraph = (frequency, header, short, label) => {
 		if (!frequency || frequency.length === 0) return null;
@@ -152,8 +156,16 @@
 		display: flex;
 		align-items: center;
 		gap: 0.5em;
-		padding: 0.4em 0;
+		padding: 0.4em 0.5em;
 		border-bottom: 1px solid var(--eee);
+		cursor: pointer;
+		border-radius: 4px;
+		transition: background-color 0.15s ease;
+		margin: 0 -0.5em;
+	}
+
+	.playerItem:hover {
+		background-color: var(--f5f5);
 	}
 
 	.playerItem:last-child {
@@ -308,11 +320,12 @@
 			<div class="cardHeader">
 				<i class="material-icons">swap_horiz</i>
 				Most Traded Players
+				<span style="font-size: 0.7em; font-weight: 400; color: var(--g999); margin-left: auto;">(click to filter)</span>
 			</div>
 			{#if mostTradedPlayers.length > 0}
 				<ul class="playerList">
 					{#each mostTradedPlayers as player, i}
-						<li class="playerItem">
+						<li class="playerItem" on:click={() => handlePlayerClick(player.name, 'trade')}>
 							<span class="rank">{i + 1}.</span>
 							<div class="playerAvatar" style="background-image: url({getPlayerAvatar(player.pos, player.playerId)}), url(https://sleepercdn.com/images/v2/icons/player_default.webp);"></div>
 							<div class="playerInfo">
@@ -333,11 +346,12 @@
 			<div class="cardHeader">
 				<i class="material-icons" style="color: #00a894;">add_circle</i>
 				Most Picked Up
+				<span style="font-size: 0.7em; font-weight: 400; color: var(--g999); margin-left: auto;">(click to filter)</span>
 			</div>
 			{#if mostPickedUpPlayers.length > 0}
 				<ul class="playerList">
 					{#each mostPickedUpPlayers as player, i}
-						<li class="playerItem">
+						<li class="playerItem" on:click={() => handlePlayerClick(player.name, 'waiver')}>
 							<span class="rank">{i + 1}.</span>
 							<div class="playerAvatar" style="background-image: url({getPlayerAvatar(player.pos, player.playerId)}), url(https://sleepercdn.com/images/v2/icons/player_default.webp);"></div>
 							<div class="playerInfo">
@@ -358,11 +372,12 @@
 			<div class="cardHeader">
 				<i class="material-icons" style="color: #ff2a6d;">remove_circle</i>
 				Most Dropped
+				<span style="font-size: 0.7em; font-weight: 400; color: var(--g999); margin-left: auto;">(click to filter)</span>
 			</div>
 			{#if mostDroppedPlayers.length > 0}
 				<ul class="playerList">
 					{#each mostDroppedPlayers as player, i}
-						<li class="playerItem">
+						<li class="playerItem" on:click={() => handlePlayerClick(player.name, 'waiver')}>
 							<span class="rank">{i + 1}.</span>
 							<div class="playerAvatar" style="background-image: url({getPlayerAvatar(player.pos, player.playerId)}), url(https://sleepercdn.com/images/v2/icons/player_default.webp);"></div>
 							<div class="playerInfo">

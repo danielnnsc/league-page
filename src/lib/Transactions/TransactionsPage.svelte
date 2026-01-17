@@ -213,6 +213,14 @@
 		updateUrl();
 	}
 
+	const handlePlayerFilter = (e) => {
+		const { playerName, transactionType } = e.detail;
+		query = playerName;
+		page = 0;
+		show = transactionType;
+		updateUrl();
+	}
+
 	const clearPeriodFilter = () => {
 		selectedPeriod = null;
 		page = 0;
@@ -367,6 +375,7 @@
 			{leagueTeamManagers}
 			{selectedSeason}
 			on:periodFilter={handlePeriodFilter}
+			on:playerFilter={handlePlayerFilter}
 		/>
 	{/if}
 
