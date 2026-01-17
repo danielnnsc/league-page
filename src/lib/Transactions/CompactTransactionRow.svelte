@@ -176,8 +176,47 @@
 		white-space: nowrap;
 	}
 
+	.competingBids {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.25em;
+		margin-left: 0.5em;
+		padding: 0.2em 0.5em;
+		background-color: rgba(245, 124, 0, 0.1);
+		border: 1px solid rgba(245, 124, 0, 0.3);
+		border-radius: 4px;
+		font-size: 0.75em;
+		color: #f57c00;
+	}
+
+	.competingBids i {
+		font-size: 12px;
+	}
+
+	.bidsList {
+		display: inline-flex;
+		gap: 0.3em;
+		margin-left: 0.25em;
+	}
+
+	.miniBid {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.15em;
+	}
+
+	.miniBid img {
+		width: 14px;
+		height: 14px;
+		border-radius: 50%;
+	}
+
 	@media (max-width: 600px) {
 		.teamChip span {
+			display: none;
+		}
+
+		.bidsList {
 			display: none;
 		}
 	}
@@ -228,6 +267,20 @@
 			{/each}
 			{#if details.length > 4}
 				<span class="detailChip tradeDetail">+{details.length - 4} more</span>
+			{/if}
+			{#if transaction.competingBids && transaction.competingBids.length > 0}
+				<span class="competingBids">
+					<i class="material-icons">gavel</i>
+					{transaction.competingBids.length} other bid{transaction.competingBids.length > 1 ? 's' : ''}
+					<span class="bidsList">
+						{#each transaction.competingBids.slice(0, 3) as bid}
+							<span class="miniBid">
+								<img src="{getTeamFromTeamManagers(leagueTeamManagers, bid.rosterId, transaction.season).avatar}" alt="team" />
+								${bid.bid}
+							</span>
+						{/each}
+					</span>
+				</span>
 			{/if}
 		</div>
 	</Cell>
