@@ -57,7 +57,7 @@
 
 	// Multi-stage filtering chain
 	const setTypeFilter = (filterBy, txns) => {
-		if (filterBy === "both") {
+		if (filterBy === "both" || filterBy === "records") {
 			return txns;
 		}
 		return txns.filter(t => t.type === filterBy);
