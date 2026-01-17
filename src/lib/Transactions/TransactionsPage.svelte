@@ -13,6 +13,7 @@
 	import { match } from 'fuzzyjs';
 	import { goto } from '$app/navigation';
 	import { getLeagueTransactions, loadPlayers } from '$lib/utils/helper';
+	import { getTeamFromTeamManagers } from '$lib/utils/helperFunctions/universalFunctions';
 
 	export let show, playersInfo, query, queryPage, transactions, stale, perPage, postUpdate = false, leagueTeamManagers;
 	export let totals = null;
@@ -109,6 +110,56 @@
 	// For card view pagination
 	$: totalTransactions = queryFiltered.length;
 	$: displayTransactions = queryFiltered.slice(page * perPage, (page + 1) * perPage);
+
+	// Player transaction summary (when searching)
+	const computePlayerSummary = (txns, q) => {
+		if (!q || q.trim() === '' || txns.length === 0) return null;
+
+		const teamStats = {};
+
+		for (const txn of txns) {
+			for (const move of txn.moves) {
+				for (const col of move) {
+					if (!col || col === 'origin' || !col.player) continue;
+					const p = players[col.player];
+					if (!p) continue;
+					const playerName = `${p.fn} ${p.ln}`;
+					if (!checkMatch(q, playerName)) continue;
+
+					const rosterID = txn.rosters[0];
+					if (!teamStats[rosterID]) {
+						teamStats[rosterID] = { adds: 0, drops: 0, trades: 0 };
+					}
+
+					if (col.type === 'Added') {
+						teamStats[rosterID].adds++;
+					} else if (col.type === 'Dropped') {
+						teamStats[rosterID].drops++;
+					} else if (col.type === 'trade') {
+						// For trades, count for the team receiving the player
+						const destRoster = txn.rosters[move.findIndex(m => m && m !== 'origin' && m.player === col.player)];
+						if (destRoster) {
+							if (!teamStats[destRoster]) {
+								teamStats[destRoster] = { adds: 0, drops: 0, trades: 0 };
+							}
+							teamStats[destRoster].trades++;
+						}
+					}
+				}
+			}
+		}
+
+		return Object.entries(teamStats)
+			.map(([rosterID, stats]) => ({
+				rosterID: parseInt(rosterID),
+				...stats,
+				total: stats.adds + stats.drops + stats.trades
+			}))
+			.filter(t => t.total > 0)
+			.sort((a, b) => b.total - a.total);
+	}
+
+	$: playerSummary = computePlayerSummary(queryFiltered, query);
 
 	// URL update helper
 	const updateUrl = () => {
@@ -322,6 +373,88 @@
 		font-size: 16px;
 		color: white;
 	}
+
+	.playerSummary {
+		background-color: var(--fff);
+		border-radius: 8px;
+		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+		padding: 1em;
+		margin: 0.5em auto 1em;
+		max-width: 600px;
+	}
+
+	.playerSummaryHeader {
+		display: flex;
+		align-items: center;
+		gap: 0.5em;
+		margin-bottom: 0.75em;
+		font-weight: 500;
+		color: var(--g333);
+	}
+
+	.playerSummaryHeader i {
+		color: var(--blueOne);
+	}
+
+	.summaryTable {
+		width: 100%;
+		border-collapse: collapse;
+		font-size: 0.9em;
+	}
+
+	.summaryTable th {
+		text-align: left;
+		padding: 0.5em;
+		border-bottom: 2px solid var(--eee);
+		color: var(--g999);
+		font-weight: 500;
+		font-size: 0.85em;
+	}
+
+	.summaryTable th:not(:first-child) {
+		text-align: center;
+	}
+
+	.summaryTable td {
+		padding: 0.5em;
+		border-bottom: 1px solid var(--eee);
+	}
+
+	.summaryTable td:not(:first-child) {
+		text-align: center;
+	}
+
+	.summaryTable tr:last-child td {
+		border-bottom: none;
+	}
+
+	.teamCell {
+		display: flex;
+		align-items: center;
+		gap: 0.5em;
+	}
+
+	.teamCell img {
+		width: 24px;
+		height: 24px;
+		border-radius: 50%;
+		border: 1px solid var(--ddd);
+	}
+
+	.statAdd {
+		color: #00a894;
+		font-weight: 600;
+	}
+
+	.statDrop {
+		color: #ff2a6d;
+		font-weight: 600;
+	}
+
+	.statTrade {
+		color: var(--blueOne);
+		font-weight: 600;
+	}
 </style>
 
 <div class="transactionsParent">
@@ -363,6 +496,41 @@
 			{:else}
 				<span class="clearPlaceholder" />
 			{/if}
+		</div>
+	{/if}
+
+	<!-- Player Transaction Summary (when searching) -->
+	{#if query.trim() !== '' && playerSummary && playerSummary.length > 0 && show !== 'records'}
+		<div class="playerSummary">
+			<div class="playerSummaryHeader">
+				<i class="material-icons">person_search</i>
+				Transaction Summary for "{query}"
+			</div>
+			<table class="summaryTable">
+				<thead>
+					<tr>
+						<th>Team</th>
+						<th>Adds</th>
+						<th>Drops</th>
+						<th>Trades</th>
+					</tr>
+				</thead>
+				<tbody>
+					{#each playerSummary.slice(0, 5) as team}
+						<tr>
+							<td>
+								<div class="teamCell">
+									<img src="{getTeamFromTeamManagers(leagueTeamManagers, team.rosterID).avatar}" alt="team" />
+									{getTeamFromTeamManagers(leagueTeamManagers, team.rosterID).name}
+								</div>
+							</td>
+							<td class="{team.adds > 0 ? 'statAdd' : ''}">{team.adds || '-'}</td>
+							<td class="{team.drops > 0 ? 'statDrop' : ''}">{team.drops || '-'}</td>
+							<td class="{team.trades > 0 ? 'statTrade' : ''}">{team.trades || '-'}</td>
+						</tr>
+					{/each}
+				</tbody>
+			</table>
 		</div>
 	{/if}
 
