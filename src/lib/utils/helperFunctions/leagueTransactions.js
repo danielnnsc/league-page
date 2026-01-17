@@ -322,3 +322,302 @@ const handleAdds = (rosters, adds, drops, player, bid) => {
 
 	return move;
 }
+
+/**
+ * Compute the most traded players across all transactions
+ * @param {Object[]} transactions - Array of transaction objects
+ * @param {Object} playerData - Player data keyed by player ID
+ * @param {number} limit - Maximum number of players to return
+ * @param {string|number} season - Filter by season ('all' or year number)
+ * @returns {Object[]} Array of {playerId, name, pos, team, count} sorted by count desc
+ */
+export const computeMostTradedPlayers = (transactions, playerData, limit = 10, season = 'all') => {
+	const playerCounts = {};
+
+	for (const txn of transactions) {
+		if (txn.type !== 'trade') continue;
+		if (season !== 'all' && txn.season !== season) continue;
+
+		for (const move of txn.moves) {
+			for (const col of move) {
+				if (!col || col === 'origin' || !col.player) continue;
+				if (col.type === 'trade') {
+					if (!playerCounts[col.player]) {
+						playerCounts[col.player] = 0;
+					}
+					playerCounts[col.player]++;
+				}
+			}
+		}
+	}
+
+	const sorted = Object.entries(playerCounts)
+		.sort((a, b) => b[1] - a[1])
+		.slice(0, limit)
+		.map(([playerId, count]) => {
+			const player = playerData[playerId] || {};
+			return {
+				playerId,
+				name: player.fn && player.ln ? `${player.fn} ${player.ln}` : 'Unknown',
+				pos: player.pos || '',
+				team: player.t || '',
+				count
+			};
+		});
+
+	return sorted;
+}
+
+/**
+ * Compute the busiest transaction periods
+ * @param {Object[]} transactions - Array of transaction objects
+ * @param {string} groupBy - 'month' or 'week'
+ * @param {string|number} season - Filter by season ('all' or year number)
+ * @returns {Object[]} Array of {period, count, trades, waivers} sorted by count desc
+ */
+export const computeBusiestPeriods = (transactions, groupBy = 'month', season = 'all') => {
+	const periods = {};
+
+	for (const txn of transactions) {
+		if (season !== 'all' && txn.season !== season) continue;
+
+		const dateParts = txn.date.split(',')[0].split(' '); // ["Jan", "15", "2024"]
+		let periodKey;
+
+		if (groupBy === 'month') {
+			periodKey = `${dateParts[0]} ${dateParts[2]}`; // "Jan 2024"
+		} else {
+			// Week grouping - use the date as-is for simplicity
+			periodKey = txn.date.split(',')[0]; // "Jan 15 2024"
+		}
+
+		if (!periods[periodKey]) {
+			periods[periodKey] = { trades: 0, waivers: 0 };
+		}
+
+		if (txn.type === 'trade') {
+			periods[periodKey].trades++;
+		} else {
+			periods[periodKey].waivers++;
+		}
+	}
+
+	const sorted = Object.entries(periods)
+		.map(([period, data]) => ({
+			period,
+			count: data.trades + data.waivers,
+			trades: data.trades,
+			waivers: data.waivers
+		}))
+		.sort((a, b) => b.count - a.count);
+
+	return sorted;
+}
+
+/**
+ * Compute total FAAB spent per roster/team
+ * @param {Object[]} transactions - Array of transaction objects
+ * @param {string|number} season - Filter by season ('all' or year number)
+ * @returns {Object} Map of rosterID -> total FAAB spent
+ */
+export const computeFaabSpent = (transactions, season = 'all') => {
+	const faabByRoster = {};
+
+	for (const txn of transactions) {
+		if (txn.type !== 'waiver') continue;
+		if (season !== 'all' && txn.season !== season) continue;
+
+		for (const move of txn.moves) {
+			for (const col of move) {
+				if (!col || col === 'origin') continue;
+				if (col.type === 'Added' && col.bid) {
+					const rosterID = txn.rosters[0];
+					if (!faabByRoster[rosterID]) {
+						faabByRoster[rosterID] = 0;
+					}
+					faabByRoster[rosterID] += col.bid;
+				}
+			}
+		}
+	}
+
+	return faabByRoster;
+}
+
+/**
+ * Compute the biggest individual FAAB spends
+ * @param {Object[]} transactions - Array of transaction objects
+ * @param {Object} playerData - Player data keyed by player ID
+ * @param {number} limit - Maximum number of spends to return
+ * @param {string|number} season - Filter by season ('all' or year number)
+ * @returns {Object[]} Array of {playerId, name, pos, team, bid, rosterID, date, season} sorted by bid desc
+ */
+export const computeBiggestFaabSpends = (transactions, playerData, limit = 10, season = 'all') => {
+	const spends = [];
+
+	for (const txn of transactions) {
+		if (txn.type !== 'waiver') continue;
+		if (season !== 'all' && txn.season !== season) continue;
+
+		for (const move of txn.moves) {
+			for (const col of move) {
+				if (!col || col === 'origin') continue;
+				if (col.type === 'Added' && col.bid && col.bid > 0) {
+					const player = playerData[col.player] || {};
+					spends.push({
+						playerId: col.player,
+						name: player.fn && player.ln ? `${player.fn} ${player.ln}` : 'Unknown',
+						pos: player.pos || '',
+						team: player.t || '',
+						bid: col.bid,
+						rosterID: txn.rosters[0],
+						date: txn.date,
+						season: txn.season
+					});
+				}
+			}
+		}
+	}
+
+	return spends.sort((a, b) => b.bid - a.bid).slice(0, limit);
+}
+
+/**
+ * Get transaction frequency data formatted for bar charts
+ * @param {Object} totals - Transaction totals object from getLeagueTransactions
+ * @param {string} type - 'trade' or 'waiver'
+ * @param {string|number} season - Specific season year or 'all' for all-time
+ * @returns {Object[]} Array of {rosterID, count} sorted by count desc
+ */
+export const getTransactionFrequency = (totals, type, season = 'all') => {
+	const frequency = [];
+
+	if (season === 'all') {
+		// Aggregate across all seasons by roster
+		const rosterTotals = {};
+		for (const seasonKey in totals.seasons) {
+			for (const rosterID in totals.seasons[seasonKey]) {
+				if (!rosterTotals[rosterID]) {
+					rosterTotals[rosterID] = 0;
+				}
+				rosterTotals[rosterID] += totals.seasons[seasonKey][rosterID][type] || 0;
+			}
+		}
+		for (const rosterID in rosterTotals) {
+			frequency.push({
+				rosterID: parseInt(rosterID),
+				count: rosterTotals[rosterID]
+			});
+		}
+	} else {
+		// Single season
+		if (totals.seasons[season]) {
+			for (const rosterID in totals.seasons[season]) {
+				frequency.push({
+					rosterID: parseInt(rosterID),
+					count: totals.seasons[season][rosterID][type] || 0
+				});
+			}
+		}
+	}
+
+	return frequency.sort((a, b) => b.count - a.count);
+}
+
+/**
+ * Compute the most picked up (added) players from waivers
+ * @param {Object[]} transactions - Array of transaction objects
+ * @param {Object} playerData - Player data keyed by player ID
+ * @param {number} limit - Maximum number of players to return
+ * @param {string|number} season - Filter by season ('all' or year number)
+ * @returns {Object[]} Array of {playerId, name, pos, team, count} sorted by count desc
+ */
+export const computeMostPickedUpPlayers = (transactions, playerData, limit = 10, season = 'all') => {
+	const playerCounts = {};
+	const excludedPositions = ['DEF', 'K'];
+
+	for (const txn of transactions) {
+		if (txn.type !== 'waiver') continue;
+		if (season !== 'all' && txn.season !== season) continue;
+
+		for (const move of txn.moves) {
+			for (const col of move) {
+				if (!col || col === 'origin' || !col.player) continue;
+				// Exclude DEF and K positions
+				const playerPos = playerData[col.player]?.pos;
+				if (excludedPositions.includes(playerPos)) continue;
+				if (col.type === 'Added') {
+					if (!playerCounts[col.player]) {
+						playerCounts[col.player] = 0;
+					}
+					playerCounts[col.player]++;
+				}
+			}
+		}
+	}
+
+	const sorted = Object.entries(playerCounts)
+		.sort((a, b) => b[1] - a[1])
+		.slice(0, limit)
+		.map(([playerId, count]) => {
+			const player = playerData[playerId] || {};
+			return {
+				playerId,
+				name: player.fn && player.ln ? `${player.fn} ${player.ln}` : 'Unknown',
+				pos: player.pos || '',
+				team: player.t || '',
+				count
+			};
+		});
+
+	return sorted;
+}
+
+/**
+ * Compute the most dropped players
+ * @param {Object[]} transactions - Array of transaction objects
+ * @param {Object} playerData - Player data keyed by player ID
+ * @param {number} limit - Maximum number of players to return
+ * @param {string|number} season - Filter by season ('all' or year number)
+ * @returns {Object[]} Array of {playerId, name, pos, team, count} sorted by count desc
+ */
+export const computeMostDroppedPlayers = (transactions, playerData, limit = 10, season = 'all') => {
+	const playerCounts = {};
+	const excludedPositions = ['DEF', 'K'];
+
+	for (const txn of transactions) {
+		if (txn.type !== 'waiver') continue;
+		if (season !== 'all' && txn.season !== season) continue;
+
+		for (const move of txn.moves) {
+			for (const col of move) {
+				if (!col || col === 'origin' || !col.player) continue;
+				// Exclude DEF and K positions
+				const playerPos = playerData[col.player]?.pos;
+				if (excludedPositions.includes(playerPos)) continue;
+				if (col.type === 'Dropped') {
+					if (!playerCounts[col.player]) {
+						playerCounts[col.player] = 0;
+					}
+					playerCounts[col.player]++;
+				}
+			}
+		}
+	}
+
+	const sorted = Object.entries(playerCounts)
+		.sort((a, b) => b[1] - a[1])
+		.slice(0, limit)
+		.map(([playerId, count]) => {
+			const player = playerData[playerId] || {};
+			return {
+				playerId,
+				name: player.fn && player.ln ? `${player.fn} ${player.ln}` : 'Unknown',
+				pos: player.pos || '',
+				team: player.t || '',
+				count
+			};
+		});
+
+	return sorted;
+}

@@ -1,25 +1,46 @@
 <script>
 	import Textfield from '@smui/textfield';
-  	import Icon from '@smui/textfield/icon';
-	import TradeTransaction from './TradeTransaction.svelte';
-	import Button, { Label } from '@smui/button';
+	import Icon from '@smui/textfield/icon';
 	import IconButton from '@smui/icon-button';
+	import TradeTransaction from './TradeTransaction.svelte';
+	import WaiverTransaction from './WaiverTransaction.svelte';
 	import Pagination from '../Pagination.svelte';
+	import TransactionFilters from './TransactionFilters.svelte';
+	import ViewModeToggle from './ViewModeToggle.svelte';
+	import CompactView from './CompactView.svelte';
+	import TimelineView from './TimelineView.svelte';
+	import TransactionAnalytics from './TransactionAnalytics.svelte';
 	import { match } from 'fuzzyjs';
 	import { goto } from '$app/navigation';
 	import { getLeagueTransactions, loadPlayers } from '$lib/utils/helper';
-	import WaiverTransaction from './WaiverTransaction.svelte';
 
-	export let show, playersInfo, query, queryPage, transactions, stale, perPage, postUpdate=false, leagueTeamManagers;
+	export let show, playersInfo, query, queryPage, transactions, stale, perPage, postUpdate = false, leagueTeamManagers;
+	export let totals = null;
+	export let initialTeam = null;
+	export let initialSeason = 'all';
+	export let initialViewMode = 'card';
+
 	const oldQuery = query;
 	let page = queryPage || 0;
+
+	// New state variables
+	let selectedTeam = initialTeam;
+	let selectedSeason = initialSeason;
+	let viewMode = initialViewMode;
+	let selectedPeriod = null; // e.g., "Jan 2024"
+
+	// Compute available seasons from transactions
+	$: seasons = [...new Set(transactions.map(t => t.season))].sort((a, b) => b - a);
 
 	const refreshTransactions = async () => {
 		const newTransactions = await getLeagueTransactions(false, true);
 		transactions = newTransactions.transactions;
+		if (newTransactions.totals) {
+			totals = newTransactions.totals;
+		}
 	}
 
-	if(stale) {
+	if (stale) {
 		refreshTransactions();
 	}
 
@@ -30,131 +51,187 @@
 		players = newPlayersInfo.players;
 	}
 
-	if(playersInfo.stale) {
+	if (playersInfo.stale) {
 		refreshPlayers();
 	}
 
-	// filtered subset based on search
-	let subsetTransactions = [];
-
-	let totalTransactions = 0;
-
-	const setFilter = (filterBy, transactions) => {
-		if(filterBy == "both") {
-			return transactions;
-		} else {
-			return transactions.filter( transaction => transaction.type == filterBy);
+	// Multi-stage filtering chain
+	const setTypeFilter = (filterBy, txns) => {
+		if (filterBy === "both") {
+			return txns;
 		}
+		return txns.filter(t => t.type === filterBy);
 	}
 
-	// filtered subset based on filter
-	$: filteredTransactions = setFilter(show, transactions);
-
-	const setQuery = (query, filteredTransactions) => {
-		if(!filteredTransactions) {
-			return [];
+	const setTeamFilter = (team, txns) => {
+		if (team === null) {
+			return txns;
 		}
-		if(query && query.trim() != "") {
-			subsetTransactions = filteredTransactions.filter( transaction => checkForQuery(transaction));
-			totalTransactions = subsetTransactions.length;
-		} else {
-			subsetTransactions = filteredTransactions;
-			totalTransactions = subsetTransactions.length;
-		}
-
-		const start = page * perPage;
-		const end = (page + 1) * perPage;
-		return subsetTransactions.slice(start, end);
+		return txns.filter(t => t.rosters.includes(team));
 	}
-	$: displayTransactions = setQuery(query, filteredTransactions);
+
+	const setSeasonFilter = (season, txns) => {
+		if (season === 'all') {
+			return txns;
+		}
+		return txns.filter(t => t.season === season);
+	}
+
+	// Period filter (e.g., "Jan 2024")
+	const setPeriodFilter = (period, txns) => {
+		if (!period) {
+			return txns;
+		}
+		// Period is like "Jan 2024" - match against transaction date which is like "Jan 15 2024, 3:45PM"
+		return txns.filter(t => {
+			const txnDate = t.date.split(',')[0]; // "Jan 15 2024"
+			const parts = txnDate.split(' '); // ["Jan", "15", "2024"]
+			const txnPeriod = `${parts[0]} ${parts[2]}`; // "Jan 2024"
+			return txnPeriod === period;
+		});
+	}
+
+	const setQueryFilter = (q, txns) => {
+		if (!txns) return [];
+		if (!q || q.trim() === "") {
+			return txns;
+		}
+		return txns.filter(t => checkForQuery(t));
+	}
+
+	// Reactive filtering chain
+	$: typeFiltered = setTypeFilter(show, transactions);
+	$: teamFiltered = setTeamFilter(selectedTeam, typeFiltered);
+	$: seasonFiltered = setSeasonFilter(selectedSeason, teamFiltered);
+	$: periodFiltered = setPeriodFilter(selectedPeriod, seasonFiltered);
+	$: queryFiltered = setQueryFilter(query, periodFiltered);
+
+	// For card view pagination
+	$: totalTransactions = queryFiltered.length;
+	$: displayTransactions = queryFiltered.slice(page * perPage, (page + 1) * perPage);
+
+	// URL update helper
+	const updateUrl = () => {
+		if (!postUpdate) return;
+		const params = new URLSearchParams();
+		params.set('show', show);
+		params.set('query', query.trim());
+		params.set('page', String(page + 1));
+		if (selectedTeam !== null) params.set('team', String(selectedTeam));
+		if (selectedSeason !== 'all') params.set('season', String(selectedSeason));
+		if (viewMode !== 'card') params.set('view', viewMode);
+		goto(`/transactions?${params.toString()}`, { noscroll: true, keepfocus: true });
+	}
 
 	const changePage = (dest, pageChange = false) => {
-		if(queryPage == dest && pageChange) return;
+		if (queryPage === dest && pageChange) return;
 		page = dest;
-		if(dest > (filteredTransactions.length / perPage) || dest < 0) {
+		if (dest > Math.ceil(totalTransactions / perPage) || dest < 0) {
 			page = 0;
 		}
-		displayTransactions = setQuery(query, filteredTransactions);
-		if(postUpdate) {
-            goto(`/transactions?show=${show}&query=${query}&page=${page+1}`, {noscroll: true,  keepfocus: true});
-		}
+		updateUrl();
 	}
 
-	let lastUpdate = new Date;
+	let timer;
 
-    let timer;
-
-	const debounce = (dest) => {
+	const debounce = (fn, delay = 750) => {
 		clearTimeout(timer);
-		timer = setTimeout(() => {
-            goto(dest,{noscroll: true,  keepfocus: true});
-		}, 750);
+		timer = setTimeout(fn, delay);
 	}
 
 	const search = () => {
-		lastUpdate = new Date;
-		query = query.trimLeft();
-		if(query.trim() == oldQuery) return;
+		query = query.trimStart();
+		if (query.trim() === oldQuery) return;
 		page = 0;
-		if(postUpdate) {
-            const dest = `/transactions?show=${show}&query=${query.trim()}&page=${page+1}`;
-            debounce(dest);
-		}
+		debounce(updateUrl);
 	}
 
 	const clearSearch = () => {
 		query = "";
-		if(postUpdate) {
-			goto(`/transactions?show=${show}&query=&page=${page+1}`, {noscroll: true,  keepfocus: true});
-		}
+		updateUrl();
 	}
-	
-	const checkMatch = (query, name) => {
-		const nameMatch = match(query, name)
-		if(nameMatch.match && nameMatch.score > 0) {
-			(nameMatch.score);
-			return true;
-		}
+
+	const checkMatch = (q, name) => {
+		const nameMatch = match(q, name);
+		return nameMatch.match && nameMatch.score > 0;
 	}
 
 	const checkForQuery = (transaction) => {
-		const moves = transaction.moves;
-		for(const move of moves) {
-			for(const col of move) {
-				if(!col?.player) continue;
-				return checkMatch(query, `${players[col.player].fn} ${players[col.player].ln}`);
+		for (const move of transaction.moves) {
+			for (const col of move) {
+				if (!col?.player) continue;
+				const p = players[col.player];
+				if (p && checkMatch(query, `${p.fn} ${p.ln}`)) {
+					return true;
+				}
 			}
 		}
 		return false;
 	}
 
-	$: changePage(page, true);
-
-	$: setQuery(query);
-
-    let el;
-
-    $: top = el?.getBoundingClientRect() ? el?.getBoundingClientRect().top  : 0;
-
-	const setShow = (val) => {
-		show = val;
+	// Reset page when filters change
+	$: {
+		show;
+		selectedTeam;
+		selectedSeason;
 		page = 0;
-		changePage(0);
 	}
+
+	let el;
+	$: top = el?.getBoundingClientRect() ? el?.getBoundingClientRect().top : 0;
+
+	// Event handlers for filter components
+	const handleTypeChange = (e) => {
+		show = e.detail;
+		page = 0;
+		updateUrl();
+	}
+
+	const handleTeamChange = (e) => {
+		selectedTeam = e.detail;
+		page = 0;
+		updateUrl();
+	}
+
+	const handleSeasonChange = (e) => {
+		selectedSeason = e.detail;
+		page = 0;
+		updateUrl();
+	}
+
+	const handleViewChange = (e) => {
+		viewMode = e.detail;
+		page = 0;
+		updateUrl();
+	}
+
+	const handlePeriodFilter = (e) => {
+		selectedPeriod = e.detail;
+		page = 0;
+		// Switch to "both" tab to show the filtered transactions
+		show = 'both';
+		updateUrl();
+	}
+
+	const clearPeriodFilter = () => {
+		selectedPeriod = null;
+		page = 0;
+	}
+
+	// Get title based on filters
+	$: title = show === 'trade' ? 'Trades' : show === 'waiver' ? 'Waivers' : 'Transactions';
 </script>
 
 <style>
 	.transactionsParent {
 		display: flex;
 		flex-wrap: wrap;
+		flex-direction: column;
 		position: relative;
 		width: 100%;
 		z-index: 1;
 		overflow-y: hidden;
 	}
-
-    @media (max-width: 1000px) {
-    }
 
 	.transactions {
 		flex-grow: 1;
@@ -167,125 +244,182 @@
 
 	h5 {
 		text-align: center;
-		margin: 30px auto 16px;
-	}
-
-	.buttons {
-		margin: 40px auto 0;
+		margin: 20px auto 16px;
 	}
 
 	:global(.disabled) {
 		pointer-events: none;
 	}
 
-	.invis-buttons {
-		display: none !important;
-	}
-
 	.searchContainer {
 		width: 100%;
 		text-align: center;
-		margin: 2em 0 .5em;
+		margin: 0.5em 0;
 	}
 
 	.clearPlaceholder {
 		width: 48px;
 		display: inline-block;
 	}
-	
+
 	.empty {
 		width: 100%;
 		font-style: italic;
 		text-align: center;
 		color: #999;
+		padding: 2em 0;
+	}
+
+	.transactionsChild {
+		min-height: 200px;
+	}
+
+	.periodFilterChip {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.5em;
+		background-color: var(--blueOne);
+		color: white;
+		padding: 0.5em 1em;
+		border-radius: 8px;
+		margin: 0.5em auto 1em;
+		max-width: 400px;
+		font-size: 0.9em;
+	}
+
+	.periodFilterChip i {
+		font-size: 1.2em;
+	}
+
+	.clearPeriod {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background: rgba(255, 255, 255, 0.2);
+		border: none;
+		border-radius: 50%;
+		width: 24px;
+		height: 24px;
+		cursor: pointer;
+		margin-left: 0.5em;
+		transition: background-color 0.15s ease;
+	}
+
+	.clearPeriod:hover {
+		background: rgba(255, 255, 255, 0.4);
+	}
+
+	.clearPeriod i {
+		font-size: 16px;
+		color: white;
 	}
 </style>
 
 <div class="transactionsParent">
-	<div class="buttons {show == "trade" ? "" : "invis-buttons"}">
-		<Button class="{show == "trade" ? "disabled" : ""}" color="primary" on:click={() => setShow("trade")} variant="{show == "trade" ? "raised" : "outlined"}" touch>
-			<Label>Trades</Label>
-		</Button>
-		<Button class="{show == "waiver" ? "disabled" : ""}" color="primary" on:click={() => setShow("waiver")} variant="{show == "waiver" ? "raised" : "outlined"}" touch>
-			<Label>Waivers</Label>
-		</Button>
-		<Button class="{show == "both" ? "disabled" : ""}" color="primary" on:click={() => setShow("both")} variant="{show == "both" ? "raised" : "outlined"}" touch>
-			<Label>Both</Label>
-		</Button>
-	</div>
-	<div class="buttons {show == "waiver" ? "" : "invis-buttons"}">
-		<Button class="{show == "trade" ? "disabled" : ""}" color="primary" on:click={() => setShow("trade")} variant="{show == "trade" ? "raised" : "outlined"}" touch>
-			<Label>Trades</Label>
-		</Button>
-		<Button class="{show == "waiver" ? "disabled" : ""}" color="primary" on:click={() => setShow("waiver")} variant="{show == "waiver" ? "raised" : "outlined"}" touch>
-			<Label>Waivers</Label>
-		</Button>
-		<Button class="{show == "both" ? "disabled" : ""}" color="primary" on:click={() => setShow("both")} variant="{show == "both" ? "raised" : "outlined"}" touch>
-			<Label>Both</Label>
-		</Button>
-	</div>
-	<div class="buttons {show == "both" ? "" : "invis-buttons"}">
-		<Button class="{show == "trade" ? "disabled" : ""}" color="primary" on:click={() => setShow("trade")} variant="{show == "trade" ? "raised" : "outlined"}" touch>
-			<Label>Trades</Label>
-		</Button>
-		<Button class="{show == "waiver" ? "disabled" : ""}" color="primary" on:click={() => setShow("waiver")} variant="{show == "waiver" ? "raised" : "outlined"}" touch>
-			<Label>Waivers</Label>
-		</Button>
-		<Button class="{show == "both" ? "disabled" : ""}" color="primary" on:click={() => setShow("both")} variant="{show == "both" ? "raised" : "outlined"}" touch>
-			<Label>Both</Label>
-		</Button>
-	</div>
-	<div class="searchContainer">
-		<span class="clearPlaceholder" />
-		<Textfield
-			class="shaped-outlined"
-			variant="outlined"
-			bind:value={query}
-			label="Search for a player..."
-			on:input={() => search()}
-		>
-			<Icon class="material-icons" slot="leadingIcon">search</Icon>
-		</Textfield>
-		{#if query.length > 0}
-			  <IconButton class="material-icons" on:click={() => clearSearch()}>clear</IconButton>
-		{:else}
+	<!-- Filters -->
+	<TransactionFilters
+		{show}
+		{selectedTeam}
+		{selectedSeason}
+		{leagueTeamManagers}
+		{seasons}
+		on:typeChange={handleTypeChange}
+		on:teamChange={handleTeamChange}
+		on:seasonChange={handleSeasonChange}
+	/>
+
+	<!-- View Mode Toggle (only show when not on Records tab) -->
+	{#if show !== 'records'}
+		<ViewModeToggle
+			{viewMode}
+			on:viewChange={handleViewChange}
+		/>
+	{/if}
+
+	<!-- Search (only show when not on Records tab) -->
+	{#if show !== 'records'}
+		<div class="searchContainer">
 			<span class="clearPlaceholder" />
-		{/if}
-	</div>
-
-	<div class="transactions" bind:this={el}>
-		{#if show == "both"}
-			<!-- trades -->
-			<h5>Recent Transactions</h5>
-		{:else if show == "trade"}
-			<!-- trades -->
-			<h5>Recent Trades</h5>
-		{:else}
-			<!-- waiver -->
-			<h5>Recent Waivers</h5>
-		{/if}
-
-		<Pagination {perPage} total={totalTransactions} bind:page={page} target={top} scroll={false} />
-		<div class="transactions-child">
-			{#each displayTransactions as transaction (transaction.id)}
-                {#if transaction.type == "waiver"}
-				    <WaiverTransaction {players} {transaction} {leagueTeamManagers} />
-                {:else}
-				    <TradeTransaction {players} {transaction} {leagueTeamManagers} />
-                {/if}
-			{/each}
+			<Textfield
+				class="shaped-outlined"
+				variant="outlined"
+				bind:value={query}
+				label="Search for a player..."
+				on:input={() => search()}
+			>
+				<Icon class="material-icons" slot="leadingIcon">search</Icon>
+			</Textfield>
+			{#if query.length > 0}
+				<IconButton class="material-icons" on:click={() => clearSearch()}>clear</IconButton>
+			{:else}
+				<span class="clearPlaceholder" />
+			{/if}
 		</div>
-		<Pagination {perPage} total={totalTransactions} bind:page={page} target={top} scroll={true} />
+	{/if}
 
-	</div>
+	<!-- Records Tab (Analytics) -->
+	{#if show === 'records'}
+		<TransactionAnalytics
+			transactions={seasonFiltered}
+			{totals}
+			{players}
+			{leagueTeamManagers}
+			{selectedSeason}
+			on:periodFilter={handlePeriodFilter}
+		/>
+	{/if}
 
-	{#if totalTransactions == 0}
-		{#if show == "trade"}
-			<p class="empty">{query.trim() != "" ? "No trades match your search" : "Nobody has made any trades yet... that's just sad" }</p>
-		{:else if show == "waiver"}
-			<p class="empty">{query.trim() != "" ? "No waivers match your search" : "Nobody has made any waiver wire moves yet... that's just sad" }</p>
-		{:else}
-			<p class="empty">{query.trim() != "" ? "No transactions match your search" : "Nobody has made any moves yet... that's just sad" }</p>
+	<!-- Period Filter Indicator (only show on transaction tabs) -->
+	{#if selectedPeriod && show !== 'records'}
+		<div class="periodFilterChip">
+			<i class="material-icons">event</i>
+			Showing transactions from <strong>{selectedPeriod}</strong>
+			<button class="clearPeriod" on:click={clearPeriodFilter}>
+				<i class="material-icons">close</i>
+			</button>
+		</div>
+	{/if}
+
+	<!-- Transactions Display (only show on transaction tabs) -->
+	{#if show !== 'records'}
+	<div class="transactions" bind:this={el}>
+		<h5>
+			{title}
+			{#if selectedSeason !== 'all'}({selectedSeason}){/if}
+			{#if totalTransactions > 0}
+				<span style="font-weight: normal; color: #999;">({totalTransactions})</span>
+			{/if}
+		</h5>
+
+		{#if totalTransactions === 0}
+			<p class="empty">
+				{#if query.trim() !== ""}
+					No {title.toLowerCase()} match your search
+				{:else}
+					No {title.toLowerCase()} found with current filters
+				{/if}
+			</p>
+		{:else if viewMode === 'card'}
+			<!-- Card View (original style) -->
+			<Pagination {perPage} total={totalTransactions} bind:page={page} target={top} scroll={false} />
+			<div class="transactionsChild">
+				{#each displayTransactions as transaction (transaction.id)}
+					{#if transaction.type === "waiver"}
+						<WaiverTransaction {players} {transaction} {leagueTeamManagers} />
+					{:else}
+						<TradeTransaction {players} {transaction} {leagueTeamManagers} />
+					{/if}
+				{/each}
+			</div>
+			<Pagination {perPage} total={totalTransactions} bind:page={page} target={top} scroll={true} />
+		{:else if viewMode === 'timeline'}
+			<!-- Timeline View -->
+			<TimelineView transactions={queryFiltered} {players} {leagueTeamManagers} perPage={20} />
+		{:else if viewMode === 'compact'}
+			<!-- Compact View -->
+			<CompactView transactions={queryFiltered} {players} {leagueTeamManagers} perPage={25} />
 		{/if}
+	</div>
 	{/if}
 </div>

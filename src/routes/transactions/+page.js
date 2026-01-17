@@ -4,6 +4,9 @@ export async function load({ url, fetch }) {
     const show = url?.searchParams?.get('show');
     const query = url?.searchParams?.get('query');
     const curPage = url?.searchParams?.get('page');
+    const team = url?.searchParams?.get('team');
+    const season = url?.searchParams?.get('season');
+    const view = url?.searchParams?.get('view');
 
     const transactionsData = getLeagueTransactions(false);
     const leagueTeamManagersData = getLeagueTeamManagers();
@@ -21,8 +24,11 @@ export async function load({ url, fetch }) {
         transactionsData,
         leagueTeamManagersData,
         page: 0,
+        team: null,
+        season: 'all',
+        view: 'card',
     }
-    if(show && (show == "trade" || show == "waiver" || show == "both")) {
+    if(show && (show == "trade" || show == "waiver" || show == "both" || show == "records")) {
         props.show = show;
     }
     if(query && !bannedValued.includes(query)) {
@@ -30,6 +36,15 @@ export async function load({ url, fetch }) {
     }
     if(curPage && !isNaN(curPage)) {
         props.page = parseInt(curPage) - 1;
+    }
+    if(team && !isNaN(team)) {
+        props.team = parseInt(team);
+    }
+    if(season && (season === 'all' || !isNaN(season))) {
+        props.season = season === 'all' ? 'all' : parseInt(season);
+    }
+    if(view && (view === 'card' || view === 'timeline' || view === 'compact')) {
+        props.view = view;
     }
     return props;
 }

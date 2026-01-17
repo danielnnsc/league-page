@@ -130,8 +130,13 @@
     }
 
     .bid {
-        color: var(--g555);
-        font-style: italic;
+        color: #fff;
+        font-weight: 700;
+        background-color: #f57c00;
+        padding: 0.15em 0.5em;
+        border-radius: 4px;
+        margin-left: 0.3em;
+        font-size: 0.95em;
     }
 
     .date {
@@ -170,7 +175,7 @@
             {/if}
             {#if transaction.moves[0][0].bid}
                 <span class="bid">
-                    - {transaction.moves[0][0].bid}$
+                    ${transaction.moves[0][0].bid}
                 </span>
             {/if}
         </span>
