@@ -10,6 +10,10 @@
 	import CompactView from './CompactView.svelte';
 	import TimelineView from './TimelineView.svelte';
 	import TransactionAnalytics from './TransactionAnalytics.svelte';
+	import DraftView from './DraftView.svelte';
+	import DraftCompactView from './DraftCompactView.svelte';
+	import DraftTimelineView from './DraftTimelineView.svelte';
+	import DraftTransaction from './DraftTransaction.svelte';
 	import { match } from 'fuzzyjs';
 	import { goto } from '$app/navigation';
 	import { getLeagueTransactions, loadPlayers } from '$lib/utils/helper';
@@ -20,6 +24,7 @@
 	export let initialTeam = null;
 	export let initialSeason = 'all';
 	export let initialViewMode = 'card';
+	export let drafts = [];
 
 	const oldQuery = query;
 	let page = queryPage || 0;
@@ -30,8 +35,107 @@
 	let viewMode = initialViewMode;
 	let selectedPeriod = null; // e.g., "Jan 2024"
 
-	// Compute available seasons from transactions
-	$: seasons = [...new Set(transactions.map(t => t.season))].sort((a, b) => b - a);
+	// Convert draft picks to transaction-like objects
+	const draftsToTransactions = (draftsData) => {
+		const draftTransactions = [];
+
+		for (const draft of draftsData) {
+			const { year, draftOrder, draftType } = draft;
+			// Use September 1st of the draft year as the draft date
+			const draftDate = `Sep 1 ${year}, 12:00PM`;
+			const draftTimestamp = new Date(year, 8, 1, 12, 0, 0).getTime();
+
+			for (let round = 0; round < draft.draft.length; round++) {
+				const row = draft.draft[round];
+				for (let col = 0; col < row.length; col++) {
+					const cell = row[col];
+					if (!cell || !cell.player) continue;
+
+					const rosterID = draftOrder[col];
+					let pickNumber;
+
+					if (draftType === 'auction') {
+						pickNumber = col + 1;
+					} else if (draftType === 'snake') {
+						if ((round + 1) % 2 === 0) {
+							pickNumber = row.length - col;
+						} else {
+							pickNumber = col + 1;
+						}
+					} else {
+						pickNumber = col + 1;
+					}
+
+					draftTransactions.push({
+						id: `draft-${year}-${round + 1}-${col}`,
+						type: 'draft',
+						date: draftDate,
+						timestamp: draftTimestamp - (round * 1000) - col, // Slight offset to maintain order
+						season: year,
+						rosters: [rosterID],
+						// Draft-specific data
+						draftPick: {
+							player: cell.player,
+							rosterID,
+							round: round + 1,
+							pickNumber,
+							overallPick: round * row.length + col + 1,
+							amount: cell.amount || null,
+							year,
+							draftType,
+							newOwner: cell.newOwner || null
+						},
+						// Empty moves array for compatibility
+						moves: [[{ player: cell.player, type: 'draft' }]]
+					});
+				}
+			}
+		}
+
+		return draftTransactions;
+	}
+
+	$: draftTransactions = draftsToTransactions(drafts);
+
+	// Parse date string like "Jan 15 2024, 3:45PM" to timestamp
+	const months = { Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5, Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11 };
+	const parseDateToTimestamp = (dateStr) => {
+		if (!dateStr) return 0;
+		try {
+			// Format: "Jan 15 2024, 3:45PM"
+			const [datePart, timePart] = dateStr.split(', ');
+			const [month, day, year] = datePart.split(' ');
+			const monthNum = months[month] ?? 0;
+
+			let hours = 0, minutes = 0;
+			if (timePart) {
+				const isPM = timePart.includes('PM');
+				const timeMatch = timePart.match(/(\d+):(\d+)/);
+				if (timeMatch) {
+					hours = parseInt(timeMatch[1]);
+					minutes = parseInt(timeMatch[2]);
+					if (isPM && hours !== 12) hours += 12;
+					if (!isPM && hours === 12) hours = 0;
+				}
+			}
+
+			return new Date(parseInt(year), monthNum, parseInt(day), hours, minutes).getTime();
+		} catch (e) {
+			return 0;
+		}
+	}
+
+	// Combine all transactions (trades, waivers, drafts) for 'all' view
+	$: allTransactions = [...transactions, ...draftTransactions].sort((a, b) => {
+		// Sort by timestamp descending (most recent first)
+		const timeA = a.timestamp || parseDateToTimestamp(a.date);
+		const timeB = b.timestamp || parseDateToTimestamp(b.date);
+		return timeB - timeA;
+	});
+
+	// Compute available seasons from all transactions
+	$: allSeasons = [...new Set([...transactions.map(t => t.season), ...draftTransactions.map(t => t.season)])];
+	$: seasons = allSeasons.sort((a, b) => b - a);
 
 	const refreshTransactions = async () => {
 		const newTransactions = await getLeagueTransactions(false, true);
@@ -57,9 +161,12 @@
 	}
 
 	// Multi-stage filtering chain
-	const setTypeFilter = (filterBy, txns) => {
-		if (filterBy === "both" || filterBy === "records") {
-			return txns;
+	const setTypeFilter = (filterBy, txns, allTxns) => {
+		if (filterBy === "all") {
+			return allTxns; // Return combined transactions + drafts
+		}
+		if (filterBy === "records") {
+			return txns; // Records only uses trades/waivers
 		}
 		return txns.filter(t => t.type === filterBy);
 	}
@@ -101,7 +208,7 @@
 	}
 
 	// Reactive filtering chain
-	$: typeFiltered = setTypeFilter(show, transactions);
+	$: typeFiltered = setTypeFilter(show, transactions, allTransactions);
 	$: teamFiltered = setTeamFilter(selectedTeam, typeFiltered);
 	$: seasonFiltered = setSeasonFilter(selectedSeason, teamFiltered);
 	$: periodFiltered = setPeriodFilter(selectedPeriod, seasonFiltered);
@@ -345,7 +452,7 @@
 	}
 
 	// Get title based on filters
-	$: title = show === 'trade' ? 'Trades' : show === 'waiver' ? 'Waivers' : 'Transactions';
+	$: title = show === 'trade' ? 'Trades' : show === 'waiver' ? 'Waivers' : show === 'all' ? 'All Transactions' : 'Transactions';
 </script>
 
 <style>
@@ -610,7 +717,7 @@
 		/>
 	{/if}
 
-	<!-- Search (only show when not on Records tab) -->
+	<!-- Search (only show when not on Records tab - show on Drafts for player search) -->
 	{#if show !== 'records'}
 		<div class="searchContainer">
 			<span class="clearPlaceholder" />
@@ -649,7 +756,7 @@
 	{/if}
 
 	<!-- Player Transaction Summary (when searching) -->
-	{#if query.trim() !== '' && playerSummary && playerSummary.length > 0 && show !== 'records'}
+	{#if query.trim() !== '' && playerSummary && playerSummary.length > 0 && show !== 'records' && show !== 'drafts'}
 		<div class="playerSummary">
 			<div class="playerSummaryHeader">
 				<i class="material-icons">person_search</i>
@@ -691,13 +798,46 @@
 			{players}
 			{leagueTeamManagers}
 			{selectedSeason}
+			{selectedTeam}
 			on:periodFilter={handlePeriodFilter}
 			on:playerFilter={handlePlayerFilter}
 		/>
 	{/if}
 
+	<!-- Drafts Tab -->
+	{#if show === 'drafts'}
+		{#if viewMode === 'card'}
+			<DraftView
+				{drafts}
+				{players}
+				{leagueTeamManagers}
+				{selectedTeam}
+				{selectedSeason}
+				{query}
+			/>
+		{:else if viewMode === 'timeline'}
+			<DraftTimelineView
+				{drafts}
+				{players}
+				{leagueTeamManagers}
+				{selectedTeam}
+				{selectedSeason}
+				{query}
+			/>
+		{:else if viewMode === 'compact'}
+			<DraftCompactView
+				{drafts}
+				{players}
+				{leagueTeamManagers}
+				{selectedTeam}
+				{selectedSeason}
+				{query}
+			/>
+		{/if}
+	{/if}
+
 	<!-- Period Filter Indicator (only show on transaction tabs) -->
-	{#if selectedPeriod && show !== 'records'}
+	{#if selectedPeriod && show !== 'records' && show !== 'drafts'}
 		<div class="periodFilterChip">
 			<i class="material-icons">event</i>
 			Showing transactions from <strong>{selectedPeriod}</strong>
@@ -708,7 +848,7 @@
 	{/if}
 
 	<!-- Transactions Display (only show on transaction tabs) -->
-	{#if show !== 'records'}
+	{#if show !== 'records' && show !== 'drafts'}
 	<div class="transactions" bind:this={el}>
 		<h5>
 			{title}
@@ -733,6 +873,8 @@
 				{#each displayTransactions as transaction (transaction.id)}
 					{#if transaction.type === "waiver"}
 						<WaiverTransaction {players} {transaction} {leagueTeamManagers} />
+					{:else if transaction.type === "draft"}
+						<DraftTransaction pick={transaction.draftPick} {players} {leagueTeamManagers} year={transaction.season} />
 					{:else}
 						<TradeTransaction {players} {transaction} {leagueTeamManagers} />
 					{/if}

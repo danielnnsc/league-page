@@ -534,9 +534,10 @@ export const computeBiggestFaabSpends = (transactions, playerData, limit = 10, s
  * @param {Object} totals - Transaction totals object from getLeagueTransactions
  * @param {string} type - 'trade' or 'waiver'
  * @param {string|number} season - Specific season year or 'all' for all-time
+ * @param {number|null} selectedTeam - Optional rosterID to filter by
  * @returns {Object[]} Array of {rosterID, count} sorted by count desc
  */
-export const getTransactionFrequency = (totals, type, season = 'all') => {
+export const getTransactionFrequency = (totals, type, season = 'all', selectedTeam = null) => {
 	const frequency = [];
 
 	if (season === 'all') {
@@ -544,6 +545,9 @@ export const getTransactionFrequency = (totals, type, season = 'all') => {
 		const rosterTotals = {};
 		for (const seasonKey in totals.seasons) {
 			for (const rosterID in totals.seasons[seasonKey]) {
+				// Skip if filtering by team and this isn't the selected team
+				if (selectedTeam && parseInt(rosterID) !== selectedTeam) continue;
+
 				if (!rosterTotals[rosterID]) {
 					rosterTotals[rosterID] = 0;
 				}
@@ -560,6 +564,9 @@ export const getTransactionFrequency = (totals, type, season = 'all') => {
 		// Single season
 		if (totals.seasons[season]) {
 			for (const rosterID in totals.seasons[season]) {
+				// Skip if filtering by team and this isn't the selected team
+				if (selectedTeam && parseInt(rosterID) !== selectedTeam) continue;
+
 				frequency.push({
 					rosterID: parseInt(rosterID),
 					count: totals.seasons[season][rosterID][type] || 0

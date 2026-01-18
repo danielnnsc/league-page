@@ -4,7 +4,7 @@
     import { waitForAll } from '$lib/utils/helper';
 
     export let data;
-    const {show, query, page, playersData, transactionsData, leagueTeamManagersData, team, season, view} = data;
+    const {show, query, page, playersData, transactionsData, draftsData, leagueTeamManagersData, team, season, view} = data;
 
 	const perPage = 10;
 </script>
@@ -31,17 +31,18 @@
 </style>
 
 <div id="main">
-    {#await waitForAll(transactionsData, playersData, leagueTeamManagersData)}
+    {#await waitForAll(transactionsData, playersData, leagueTeamManagersData, draftsData)}
         <div class="loading" >
             <p>Loading league transactions...</p>
             <LinearProgress indeterminate />
         </div>
-    {:then [{transactions, totals, stale}, playersInfo, leagueTeamManagers]}
+    {:then [{transactions, totals, stale}, playersInfo, leagueTeamManagers, drafts]}
         <TransactionsPage
             {playersInfo}
             {stale}
             {transactions}
             {totals}
+            {drafts}
             {show}
             {query}
             queryPage={page}

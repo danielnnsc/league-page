@@ -142,14 +142,17 @@
 	<div class="filterGroup">
 		<span class="filterLabel">Type</span>
 		<div class="typeButtons">
+			<Button class="{show === 'all' ? 'disabled' : ''}" color="primary" on:click={() => setShow('all')} variant="{show === 'all' ? 'raised' : 'outlined'}" touch>
+				<Label>All</Label>
+			</Button>
 			<Button class="{show === 'trade' ? 'disabled' : ''}" color="primary" on:click={() => setShow('trade')} variant="{show === 'trade' ? 'raised' : 'outlined'}" touch>
 				<Label>Trades</Label>
 			</Button>
 			<Button class="{show === 'waiver' ? 'disabled' : ''}" color="primary" on:click={() => setShow('waiver')} variant="{show === 'waiver' ? 'raised' : 'outlined'}" touch>
 				<Label>Waivers</Label>
 			</Button>
-			<Button class="{show === 'both' ? 'disabled' : ''}" color="primary" on:click={() => setShow('both')} variant="{show === 'both' ? 'raised' : 'outlined'}" touch>
-				<Label>Both</Label>
+			<Button class="{show === 'drafts' ? 'disabled' : ''}" color="primary" on:click={() => setShow('drafts')} variant="{show === 'drafts' ? 'raised' : 'outlined'}" touch>
+				<Label>Drafts</Label>
 			</Button>
 			<Button class="{show === 'records' ? 'disabled' : ''}" color="secondary" on:click={() => setShow('records')} variant="{show === 'records' ? 'raised' : 'outlined'}" touch>
 				<Label>Records</Label>

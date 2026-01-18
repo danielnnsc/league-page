@@ -1,4 +1,4 @@
-import { getLeagueTransactions, loadPlayers, getLeagueTeamManagers } from '$lib/utils/helper';
+import { getLeagueTransactions, loadPlayers, getLeagueTeamManagers, getPreviousDrafts } from '$lib/utils/helper';
 
 export async function load({ url, fetch }) {
     const show = url?.searchParams?.get('show');
@@ -10,6 +10,7 @@ export async function load({ url, fetch }) {
 
     const transactionsData = getLeagueTransactions(false);
     const leagueTeamManagersData = getLeagueTeamManagers();
+    const draftsData = getPreviousDrafts();
 
     const playersData = loadPlayers(fetch);
 
@@ -18,17 +19,18 @@ export async function load({ url, fetch }) {
     ]
 
     const props = {
-        show: "both",
+        show: "all",
         query: "",
         playersData,
         transactionsData,
+        draftsData,
         leagueTeamManagersData,
         page: 0,
         team: null,
         season: 'all',
         view: 'card',
     }
-    if(show && (show == "trade" || show == "waiver" || show == "both" || show == "records")) {
+    if(show && (show == "all" || show == "trade" || show == "waiver" || show == "records" || show == "drafts")) {
         props.show = show;
     }
     if(query && !bannedValued.includes(query)) {

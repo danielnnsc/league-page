@@ -2,6 +2,43 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.4.0] - 2025-01-17
+
+### Added
+
+- **Transactions Page Revamp** - Complete overhaul of the trades and waivers page
+    - **Multiple View Modes**: Switch between Card, Timeline, and Compact (DataTable) views
+    - **Team/Manager Filter**: Filter transactions to show only those involving a specific team
+    - **Season Filter**: Filter by season or show all seasons chronologically
+    - **"All" Transaction Type**: New default view combining trades, waivers, and drafts in chronological order
+    - **Drafts in All Views**: Draft picks now appear in Card, Timeline, and Compact views (not just dedicated Drafts tab)
+
+- **Transaction Analytics/Records Tab** - New analytics dashboard
+    - Summary stats showing total FAAB spent, trade count, and waiver count
+    - Most traded players list (click to filter)
+    - Most picked up players list (click to filter)
+    - Most dropped players list (click to filter)
+    - Biggest FAAB spends with team info
+    - Busiest trading periods (click to filter by month)
+    - Bar charts for trade frequency, waiver frequency, and FAAB spent by team
+    - All analytics filter by selected team when one is chosen
+
+- **Expandable Transaction Details** - Click to expand any transaction for full details
+    - Waiver transactions show all competing bids ranked by amount with winner highlighted
+    - Trade transactions show a summary of what each team gave and received
+    - Works in Card, Timeline, and Compact views
+
+- **FAAB Tracking Enhancements**
+    - Total FAAB spent summary stat in Records tab
+    - FAAB filtering by team shows percentage of league total
+    - Per-team FAAB breakdown in bar chart
+
+### Changed
+
+- Trade items in Timeline view now use team-based color coding matching the Compact view
+- Transactions default to chronological sorting instead of by type
+- Improved date parsing for accurate chronological ordering
+
 ## [2.3.5] - 2024-04-27
 
 ### Fixed

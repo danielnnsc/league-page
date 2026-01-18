@@ -12,9 +12,27 @@
 	} from '$lib/utils/helperFunctions/leagueTransactions';
 	import { createEventDispatcher } from 'svelte';
 
-	export let transactions, totals, players, leagueTeamManagers, selectedSeason = 'all';
+	export let transactions, totals, players, leagueTeamManagers, selectedSeason = 'all', selectedTeam = null;
 
 	const dispatch = createEventDispatcher();
+
+	// Filter transactions by team if selected
+	$: teamFilteredTransactions = selectedTeam
+		? transactions.filter(t => t.rosters.includes(selectedTeam))
+		: transactions;
+
+	// Calculate total FAAB spent
+	$: totalFaabSpent = Object.values(computeFaabSpent(teamFilteredTransactions, selectedSeason))
+		.reduce((sum, amount) => sum + amount, 0);
+
+	// Calculate league-wide total for comparison
+	$: leagueTotalFaab = Object.values(computeFaabSpent(transactions, selectedSeason))
+		.reduce((sum, amount) => sum + amount, 0);
+
+	// Get team info for display
+	$: selectedTeamInfo = selectedTeam
+		? getTeamFromTeamManagers(leagueTeamManagers, selectedTeam, selectedSeason === 'all' ? leagueTeamManagers.currentSeason : selectedSeason)
+		: null;
 
 	const handlePeriodClick = (period) => {
 		dispatch('periodFilter', period);
@@ -70,15 +88,19 @@
 		};
 	}
 
-	// Reactive computations
-	$: tradeFrequency = totals ? getTransactionFrequency(totals, 'trade', selectedSeason) : [];
-	$: waiverFrequency = totals ? getTransactionFrequency(totals, 'waiver', selectedSeason) : [];
-	$: faabSpent = computeFaabSpent(transactions, selectedSeason);
-	$: mostTradedPlayers = computeMostTradedPlayers(transactions, players, 10, selectedSeason);
-	$: mostPickedUpPlayers = computeMostPickedUpPlayers(transactions, players, 10, selectedSeason);
-	$: mostDroppedPlayers = computeMostDroppedPlayers(transactions, players, 10, selectedSeason);
-	$: biggestFaabSpends = computeBiggestFaabSpends(transactions, players, 10, selectedSeason);
-	$: busiestPeriods = computeBusiestPeriods(transactions, 'month', selectedSeason).slice(0, 5);
+	// Reactive computations - use team filtered transactions when team is selected
+	$: tradeFrequency = totals ? getTransactionFrequency(totals, 'trade', selectedSeason, selectedTeam) : [];
+	$: waiverFrequency = totals ? getTransactionFrequency(totals, 'waiver', selectedSeason, selectedTeam) : [];
+	$: faabSpent = computeFaabSpent(teamFilteredTransactions, selectedSeason);
+	$: mostTradedPlayers = computeMostTradedPlayers(teamFilteredTransactions, players, 10, selectedSeason);
+	$: mostPickedUpPlayers = computeMostPickedUpPlayers(teamFilteredTransactions, players, 10, selectedSeason);
+	$: mostDroppedPlayers = computeMostDroppedPlayers(teamFilteredTransactions, players, 10, selectedSeason);
+	$: biggestFaabSpends = computeBiggestFaabSpends(teamFilteredTransactions, players, 10, selectedSeason);
+	$: busiestPeriods = computeBusiestPeriods(teamFilteredTransactions, 'month', selectedSeason).slice(0, 5);
+
+	// Count transactions for summary
+	$: tradeCount = teamFilteredTransactions.filter(t => t.type === 'trade').length;
+	$: waiverCount = teamFilteredTransactions.filter(t => t.type === 'waiver').length;
 
 	// Build graphs array
 	$: tradeGraph = generateFrequencyGraph(tradeFrequency, 'Trade Frequency by Team', 'Trades', ' trades');
@@ -117,6 +139,76 @@
 
 	.analyticsHeader i {
 		color: var(--blueOne);
+	}
+
+	.summarySection {
+		display: flex;
+		gap: 1em;
+		margin-bottom: 1.5em;
+		flex-wrap: wrap;
+	}
+
+	.summaryCard {
+		flex: 1;
+		min-width: 140px;
+		display: flex;
+		align-items: center;
+		gap: 0.75em;
+		padding: 1em;
+		background-color: var(--fff);
+		border-radius: 8px;
+		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+	}
+
+	.summaryCard i {
+		font-size: 2em;
+		opacity: 0.9;
+	}
+
+	.summaryCard.faab i {
+		color: #f57c00;
+	}
+
+	.summaryCard.trades i {
+		color: var(--blueOne);
+	}
+
+	.summaryCard.waivers i {
+		color: var(--blueTwo);
+	}
+
+	.summaryContent {
+		display: flex;
+		flex-direction: column;
+	}
+
+	.summaryValue {
+		font-size: 1.5em;
+		font-weight: 600;
+		line-height: 1.2;
+	}
+
+	.summaryCard.faab .summaryValue {
+		color: #f57c00;
+	}
+
+	.summaryCard.trades .summaryValue {
+		color: var(--blueOne);
+	}
+
+	.summaryCard.waivers .summaryValue {
+		color: var(--blueTwo);
+	}
+
+	.summaryLabel {
+		font-size: 0.85em;
+		color: var(--g555);
+	}
+
+	.summarySubtext {
+		font-size: 0.75em;
+		color: var(--g999);
+		font-style: italic;
 	}
 
 	.analyticsGrid {
@@ -311,7 +403,41 @@
 <div class="analyticsPanel">
 	<div class="analyticsHeader">
 		<i class="material-icons">analytics</i>
-		<h4>Transaction Analytics {selectedSeason !== 'all' ? `(${selectedSeason})` : '(All Time)'}</h4>
+		<h4>
+			Transaction Analytics
+			{#if selectedTeamInfo}
+				- {selectedTeamInfo.name}
+			{/if}
+			{selectedSeason !== 'all' ? `(${selectedSeason})` : '(All Time)'}
+		</h4>
+	</div>
+
+	<!-- Summary Stats -->
+	<div class="summarySection">
+		<div class="summaryCard faab">
+			<i class="material-icons">attach_money</i>
+			<div class="summaryContent">
+				<span class="summaryValue">${totalFaabSpent.toLocaleString()}</span>
+				<span class="summaryLabel">FAAB Spent{selectedTeam ? '' : ' (League)'}</span>
+				{#if selectedTeam && leagueTotalFaab > 0}
+					<span class="summarySubtext">{Math.round((totalFaabSpent / leagueTotalFaab) * 100)}% of league total</span>
+				{/if}
+			</div>
+		</div>
+		<div class="summaryCard trades">
+			<i class="material-icons">swap_horiz</i>
+			<div class="summaryContent">
+				<span class="summaryValue">{tradeCount}</span>
+				<span class="summaryLabel">Trades</span>
+			</div>
+		</div>
+		<div class="summaryCard waivers">
+			<i class="material-icons">person_add</i>
+			<div class="summaryContent">
+				<span class="summaryValue">{waiverCount}</span>
+				<span class="summaryLabel">Waiver Claims</span>
+			</div>
+		</div>
 	</div>
 
 	<div class="analyticsGrid">
