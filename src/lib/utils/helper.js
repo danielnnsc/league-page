@@ -5,7 +5,7 @@ import {getNflState} from './helperFunctions/nflState';
 import {getLeagueRosters} from './helperFunctions/leagueRosters';
 import {getLeagueTeamManagers} from './helperFunctions/leagueTeamManagers';
 import {getLeagueMatchups} from './helperFunctions/leagueMatchups'
-import {getRivalryMatchups} from './helperFunctions/rivalryMatchups'
+import {getRivalryMatchups, getAllHeadToHeadRecords} from './helperFunctions/rivalryMatchups'
 import {getNews, stringDate} from './helperFunctions/news';
 import {loadPlayers} from './helperFunctions/players';
 import { waitForAll } from './helperFunctions/multiPromise';
@@ -17,6 +17,8 @@ import { predictScores } from './helperFunctions/predictOptimalScore';
 import { getBrackets } from './helperFunctions/leagueBrackets';
 import { getBlogPosts, generateParagraph } from './helperFunctions/getBlogPosts';
 import { getLeagueStandings } from './helperFunctions/leagueStandings';
+import { getPlayerSeasonStats, getOverallRankings, getPositionalRankings } from './helperFunctions/playerSeasonStats';
+import { calculateDraftGrades, calculateOwnerDraftHistory, getGradeFromValue, getValueColor, getValueTextColor } from './helperFunctions/draftGrades';
 
 export {
     enableBlog,
@@ -30,6 +32,7 @@ export {
     getLeagueTeamManagers,
     getLeagueMatchups,
     getRivalryMatchups,
+    getAllHeadToHeadRecords,
     getNews,
     loadPlayers,
     waitForAll,
@@ -54,4 +57,12 @@ export {
     parseDate,
     getAvatar,
     getTeamFromTeamManagers,
+    getPlayerSeasonStats,
+    getOverallRankings,
+    getPositionalRankings,
+    calculateDraftGrades,
+    calculateOwnerDraftHistory,
+    getGradeFromValue,
+    getValueColor,
+    getValueTextColor,
 }

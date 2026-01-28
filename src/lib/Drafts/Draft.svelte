@@ -5,10 +5,19 @@
     import DraftRow from './DraftRow.svelte';
     import { gotoManager } from '$lib/utils/helper'
 	import { getAvatarFromTeamManagers, getTeamNameFromTeamManagers } from '$lib/utils/helperFunctions/universalFunctions';
-    
-    export let draftData, leagueTeamManagers, previous = false, year, players;
 
-    const {draftOrder, draft, accuracy, reversalRound, draftType} = draftData;
+    export let draftData, leagueTeamManagers, previous = false, year, players;
+    export let analysisMode = false;
+    export let gradesData = null;
+
+    // Reactive destructuring so draft board updates when draftData changes
+    $: ({draftOrder, draft, accuracy, reversalRound, draftType} = draftData);
+
+    // Create a map of playerId -> grade data for quick lookup
+    $: gradeMap = gradesData?.picks?.reduce((map, pick) => {
+        map[pick.playerId] = pick;
+        return map;
+    }, {}) || {};
 
     let progress = 0;
     let closed = false;
@@ -133,7 +142,7 @@
     </Head>
     <Body>
         {#each draft as draftRow, row}
-            <DraftRow {draftRow} row={row + 1} {previous} {reversalRound} {draftType} {players} {leagueTeamManagers} {year} />
+            <DraftRow {draftRow} row={row + 1} {previous} {reversalRound} {draftType} {players} {leagueTeamManagers} {year} {analysisMode} {gradeMap} />
         {/each}
     </Body>
 </DataTable>
