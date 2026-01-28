@@ -3,50 +3,30 @@ import { getTeamFromTeamManagers } from './universalFunctions';
 import { round } from './universalFunctions';
 
 /**
- * Grade thresholds based on value differential
- * Value = draftPosition - actualFinish (positive = outperformed)
+ * Finish bonus scale - rewards players based on their actual season finish
+ * Combined with draft value to create adjusted score
+ * Formula: adjustedValue = (pick - finish) + (totalPicks - finish) * FINISH_BONUS_SCALE
+ */
+const FINISH_BONUS_SCALE = 2.5;
+
+/**
+ * Grade thresholds based on adjusted value (draft value + finish bonus)
+ * These thresholds work with the new formula that produces scores roughly 0-500+
  */
 const GRADE_THRESHOLDS = {
-	'A': 12,
-	'B': -6,
-	'C': -24,
-	'D': -48,
-	'F': -Infinity
+	'A': 460,   // Elite - deep sleepers, top early round hits
+	'B': 400,   // Very good - solid value picks
+	'C': 300,   // Average - met expectations
+	'D': 100,   // Below average - underperformed
+	'F': -Infinity  // Poor - busts and no-shows
 };
 
 /**
- * Early round picks have limited upside (pick #1 can only finish #1 at best = value of 0)
- * Add bonus to account for this - meeting expectations in early rounds is a good outcome
+ * Get letter grade from adjusted value
+ * @param {number} value - The adjusted value (draft value + finish bonus)
  */
-const EARLY_ROUND_BONUS = {
-	1: 12,  // Round 1: meeting expectations = exactly A threshold
-	2: 6,   // Round 2: meeting expectations = solid B
-	3: 3    // Round 3: meeting expectations = B
-};
-
-/**
- * Late round A thresholds - harder to get an A in later rounds
- */
-const LATE_ROUND_A_THRESHOLD = 25;    // Rounds 8-11
-const LATE_ROUND_START = 8;
-const VERY_LATE_ROUND_A_THRESHOLD = 49;  // Rounds 12+
-const VERY_LATE_ROUND_START = 12;
-
-/**
- * Get letter grade from value differential
- * @param {number} value - The grade value (with bonuses applied)
- * @param {number} round - Optional round number for late-round adjustments
- */
-export const getGradeFromValue = (value, round = null) => {
-	// Determine A threshold based on round
-	let aThreshold = GRADE_THRESHOLDS['A'];
-	if (round && round >= VERY_LATE_ROUND_START) {
-		aThreshold = VERY_LATE_ROUND_A_THRESHOLD;
-	} else if (round && round >= LATE_ROUND_START) {
-		aThreshold = LATE_ROUND_A_THRESHOLD;
-	}
-
-	if (value >= aThreshold) return 'A';
+export const getGradeFromValue = (value) => {
+	if (value >= GRADE_THRESHOLDS['A']) return 'A';
 	if (value >= GRADE_THRESHOLDS['B']) return 'B';
 	if (value >= GRADE_THRESHOLDS['C']) return 'C';
 	if (value >= GRADE_THRESHOLDS['D']) return 'D';
@@ -56,11 +36,10 @@ export const getGradeFromValue = (value, round = null) => {
 /**
  * Get color for value based on letter grade scale
  * A = green, B = light green, C = yellow/orange, D = light red, F = red
- * @param {number} value - The grade value
- * @param {number} round - Optional round number for late-round adjustments
+ * @param {number} value - The adjusted value
  */
-export const getValueColor = (value, round = null) => {
-	const grade = getGradeFromValue(value, round);
+export const getValueColor = (value) => {
+	const grade = getGradeFromValue(value);
 
 	const gradeColors = {
 		'A': '#059669',  // emerald green
@@ -234,7 +213,11 @@ export const calculateDraftGrades = async (draft, players, leagueTeamManagers, o
 		});
 	}
 
-	// Calculate grades for each pick
+	// Calculate grades for each pick using new formula:
+	// adjustedValue = draftValue + finishBonus
+	// where draftValue = pick - finish, finishBonus = (totalPicks - finish) * scale
+	const totalPicks = flattenedPicks.length;
+
 	const gradedPicks = flattenedPicks.map(pick => {
 		const stats = seasonStats[pick.playerId];
 		const playerInfo = players[pick.playerId];
@@ -246,22 +229,18 @@ export const calculateDraftGrades = async (draft, players, leagueTeamManagers, o
 		const actualOverallRank = overallRankMap[pick.playerId] || null;
 		const actualPositionalRank = positionalRankMap[pick.playerId] || null;
 
-		// Calculate value: draft position - actual finish (positive = outperformed)
+		// Calculate draft value: draft position - actual finish (positive = outperformed)
 		const overallValue = actualOverallRank ? pick.overallPick - actualOverallRank : null;
 		const positionalValue = actualPositionalRank ? pick.positionalPick - actualPositionalRank : null;
 
-		// Apply early round bonus - early picks have limited upside so meeting expectations is good
-		const earlyRoundBonus = EARLY_ROUND_BONUS[pick.round] || 0;
+		// Calculate finish bonus: rewards based on actual season finish
+		const finishBonus = actualOverallRank ? (totalPicks - actualOverallRank) * FINISH_BONUS_SCALE : 0;
 
-		// Calculate grade value with bonus applied
-		// Use overall value for grade, penalize players with no stats (but less harshly)
-		const baseValue = overallValue !== null ? overallValue : -30;
-		const gradeValue = baseValue + earlyRoundBonus;
-		const grade = getGradeFromValue(gradeValue, pick.round);
-
-		// Calculate efficiency
-		const expectedPoints = getExpectedPoints(pick.overallPick, flattenedPicks.length);
-		const efficiency = expectedPoints > 0 ? round(totalPoints / expectedPoints, 2) : 0;
+		// Calculate adjusted value (new formula combining draft value + finish bonus)
+		// Players with no stats get a penalty
+		const draftValue = overallValue !== null ? overallValue : -50;
+		const gradeValue = draftValue + finishBonus;
+		const grade = getGradeFromValue(gradeValue);
 
 		return {
 			...pick,
@@ -276,13 +255,12 @@ export const calculateDraftGrades = async (draft, players, leagueTeamManagers, o
 			totalAtPosition: positionalRankings[pick.position]?.length || 0,
 			overallValue,
 			positionalValue,
+			finishBonus: round(finishBonus),
 			grade,
-			gradeValue,
-			expectedPoints: round(expectedPoints),
-			efficiency,
+			gradeValue: round(gradeValue),
 			flagged: gamesPlayed < 7,
-			isSleeper: isSleeper({ ...pick, actualOverallRank, gamesPlayed }, flattenedPicks.length),
-			isBust: isBust({ ...pick, actualOverallRank, gamesPlayed }, flattenedPicks.length)
+			isSleeper: isSleeper({ ...pick, actualOverallRank, gamesPlayed }, totalPicks),
+			isBust: isBust({ ...pick, actualOverallRank, gamesPlayed }, totalPicks)
 		};
 	});
 
@@ -294,38 +272,13 @@ export const calculateDraftGrades = async (draft, players, leagueTeamManagers, o
 		const teamPicks = gradedPicks.filter(p => p.rosterID === rosterID);
 		const validPicks = teamPicks.filter(p => p.overallValue !== null);
 
-		// Use gradeValue (includes early round bonus) for team calculations
+		// Use gradeValue (adjusted value with finish bonus) for team calculations
 		const totalValue = validPicks.reduce((sum, p) => sum + (p.gradeValue || 0), 0);
 		const avgValue = validPicks.length > 0 ? totalValue / validPicks.length : 0;
 		const avgGrade = getGradeFromValue(avgValue);
 
-		// Calculate efficiency
-		const totalActualPoints = teamPicks.reduce((sum, p) => sum + p.totalPoints, 0);
-		const totalExpectedPoints = teamPicks.reduce((sum, p) => sum + p.expectedPoints, 0);
-		const teamEfficiency = totalExpectedPoints > 0 ? round(totalActualPoints / totalExpectedPoints, 2) : 0;
-
-		// Position breakdown
-		const positionBreakdown = {};
-		const positions = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF'];
-		for (const pos of positions) {
-			const posPicks = teamPicks.filter(p => p.position === pos);
-			if (posPicks.length > 0) {
-				const draftCapital = posPicks.reduce((sum, p) => sum + (flattenedPicks.length - p.overallPick + 1), 0);
-				const pointsReturned = posPicks.reduce((sum, p) => sum + p.totalPoints, 0);
-				positionBreakdown[pos] = {
-					picks: posPicks.length,
-					draftCapital,
-					pointsReturned: round(pointsReturned),
-					efficiency: draftCapital > 0 ? round(pointsReturned / draftCapital, 2) : 0,
-					avgValue: posPicks.filter(p => p.overallValue !== null).length > 0
-						? round(posPicks.filter(p => p.overallValue !== null).reduce((s, p) => s + p.overallValue, 0) / posPicks.filter(p => p.overallValue !== null).length)
-						: 0
-				};
-			}
-		}
-
-		// Find best and worst picks
-		const sortedByValue = [...validPicks].sort((a, b) => (b.overallValue || 0) - (a.overallValue || 0));
+		// Find best and worst picks (sorted by gradeValue for consistency)
+		const sortedByValue = [...validPicks].sort((a, b) => (b.gradeValue || 0) - (a.gradeValue || 0));
 		const bestPick = sortedByValue[0] || null;
 		const worstPick = sortedByValue[sortedByValue.length - 1] || null;
 
@@ -333,11 +286,9 @@ export const calculateDraftGrades = async (draft, players, leagueTeamManagers, o
 			rosterID,
 			team: getTeamFromTeamManagers(leagueTeamManagers, rosterID, year),
 			picks: teamPicks,
-			totalValue,
+			totalValue: round(totalValue),
 			avgValue: round(avgValue),
 			avgGrade,
-			efficiency: teamEfficiency,
-			positionBreakdown,
 			bestPick,
 			worstPick,
 			sleeperCount: teamPicks.filter(p => p.isSleeper).length,

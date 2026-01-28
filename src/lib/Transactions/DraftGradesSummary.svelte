@@ -108,6 +108,10 @@
 		margin-bottom: 0.75em;
 	}
 
+	.statsGrid.twoCol {
+		grid-template-columns: repeat(2, 1fr);
+	}
+
 	.statBox {
 		text-align: center;
 		padding: 0.5em;
@@ -231,7 +235,7 @@
 				</div>
 			</div>
 			<div class="cardBody">
-				<div class="statsGrid">
+				<div class="statsGrid twoCol">
 					<div class="statBox">
 						<div class="statValue" style="color: {team.totalValue >= 0 ? '#00a894' : '#ff2a6d'};">
 							{team.totalValue >= 0 ? '+' : ''}{team.totalValue}
@@ -242,10 +246,6 @@
 						<div class="statValue">{team.avgValue >= 0 ? '+' : ''}{team.avgValue}</div>
 						<div class="statLabel">Avg Value</div>
 					</div>
-					<div class="statBox">
-						<div class="statValue">{team.efficiency}x</div>
-						<div class="statLabel">Efficiency</div>
-					</div>
 				</div>
 
 				<div class="highlightSection">
@@ -253,14 +253,14 @@
 						<div class="highlightBox best">
 							<div class="highlightLabel">Best Pick</div>
 							<div class="highlightPlayer">{team.bestPick.playerName}</div>
-							<span class="highlightValue positive">+{team.bestPick.overallValue}</span>
+							<span class="highlightValue" style="color: {getGradeColor(team.bestPick.grade)};">{team.bestPick.grade}</span>
 						</div>
 					{/if}
 					{#if team.worstPick}
 						<div class="highlightBox worst">
 							<div class="highlightLabel">Worst Pick</div>
 							<div class="highlightPlayer">{team.worstPick.playerName}</div>
-							<span class="highlightValue negative">{team.worstPick.overallValue}</span>
+							<span class="highlightValue" style="color: {getGradeColor(team.worstPick.grade)};">{team.worstPick.grade}</span>
 						</div>
 					{/if}
 				</div>

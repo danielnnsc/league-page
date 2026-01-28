@@ -1,6 +1,6 @@
 <script>
 	import Matchup from "$lib/Matchups/Matchup.svelte";
-	import TradeTransaction from "$lib/Transactions/TradeTransaction.svelte";
+	import TradeSummary from "./TradeSummary.svelte";
 	import { getLeagueRecords, getLeagueTransactions, getRivalryMatchups, loadPlayers, round } from "$lib/utils/helper";
 	import { getRosterIDFromManagerIDAndYear } from "$lib/utils/helperFunctions/universalFunctions";
 	import LinearProgress from '@smui/linear-progress';
@@ -8,6 +8,7 @@
 	import ComparissonBar from "./ComparissonBar.svelte";
 	import ManagerSelectors from "./ManagerSelectors.svelte";
 	import RivalryControls from "./RivalryControls.svelte";
+	import HeadToHeadMatrix from "./HeadToHeadMatrix.svelte";
 
 	export let leagueTeamManagers, playersInfo, transactionsInfo, recordsInfo, playerOne, playerTwo;
 
@@ -100,6 +101,18 @@
 
     $: playerOneRecords = recordsInfo?.regularSeasonData?.leagueManagerRecords ? recordsInfo.regularSeasonData.leagueManagerRecords[playerOne] : null;
     $: playerTwoRecords = recordsInfo?.regularSeasonData?.leagueManagerRecords ? recordsInfo.regularSeasonData.leagueManagerRecords[playerTwo] : null;
+
+    const handleSelectRivalry = (e) => {
+        playerOne = e.detail.playerOne;
+        playerTwo = e.detail.playerTwo;
+        // Scroll to the rivalry details section
+        setTimeout(() => {
+            const element = document.getElementById('rivalryDetails');
+            if (element) {
+                element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }, 100);
+    };
 </script>
 
 <style>
@@ -154,10 +167,34 @@
             font-size: 1.3em;
         }
     }
+
+    .matrixSection {
+        padding: 1.5em 1em;
+    }
+
+    .matrixHint {
+        text-align: center;
+        font-size: 0.85em;
+        color: var(--g999);
+        margin: 0 0 0.5em;
+        font-style: italic;
+    }
+
+    .selectRivalry {
+        margin-top: 2em;
+    }
 </style>
 
 <h2>Rivalry</h2>
 
+<!-- All-Time Head-to-Head Matrix -->
+<div class="scoreBoard matrixSection">
+    <h3>All-Time Head to Head Records</h3>
+    <p class="matrixHint">Click any cell to view the full rivalry</p>
+    <HeadToHeadMatrix {leagueTeamManagers} on:selectRivalry={handleSelectRivalry} />
+</div>
+
+<h3 class="selectRivalry" id="rivalryDetails">Select a Rivalry</h3>
 <div class="rivalrySelection">
     <ManagerSelectors bind:playerOne={playerOne} bind:playerTwo={playerTwo} {leagueTeamManagers} />
 </div>
@@ -193,7 +230,7 @@
             <h3>Trade History</h3>
             <div class="trades">
                 {#each tradeHistory as transaction }
-                    <TradeTransaction players={playersInfo.players} {transaction} {leagueTeamManagers} />
+                    <TradeSummary players={playersInfo.players} {transaction} {leagueTeamManagers} />
                 {:else}
                     No trades yet...
                 {/each}

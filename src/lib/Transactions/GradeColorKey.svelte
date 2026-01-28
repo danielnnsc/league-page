@@ -188,10 +188,20 @@
 				</div>
 
 				<div class="tooltipSection">
-					<div class="tooltipLabel">Value Formula</div>
+					<div class="tooltipLabel">Score Formula</div>
 					<div class="tooltipText">
-						Value = Draft Position - Season Finish<br>
-						<em>Positive value = outperformed draft position</em>
+						Score = Draft Value + Finish Bonus<br>
+						<em>Draft Value</em> = Pick # - Finish #<br>
+						<em>Finish Bonus</em> = (Total Picks - Finish #) × 2.5
+					</div>
+				</div>
+
+				<div class="tooltipSection">
+					<div class="tooltipLabel">Why This Formula?</div>
+					<div class="tooltipText">
+						Rewards both outperforming draft position AND actual impact.
+						A late-round sleeper who becomes a starter gets credit for both.
+						An early-round hit who performs as expected is properly valued.
 					</div>
 				</div>
 
@@ -199,30 +209,15 @@
 					<div class="tooltipLabel">Grade Thresholds</div>
 					<div class="thresholdList">
 						<span class="thresholdGrade a">A</span>
-						<span class="thresholdValue">+12 (Rd 1-7), +25 (~2 rds better, Rd 8-11), +49 (~4 rds better, Rd 12+)</span>
+						<span class="thresholdValue">460+ (elite picks)</span>
 						<span class="thresholdGrade b">B</span>
-						<span class="thresholdValue">-6 to +11</span>
+						<span class="thresholdValue">400-459 (very good)</span>
 						<span class="thresholdGrade c">C</span>
-						<span class="thresholdValue">-24 to -7</span>
+						<span class="thresholdValue">300-399 (average)</span>
 						<span class="thresholdGrade d">D</span>
-						<span class="thresholdValue">-48 to -25</span>
+						<span class="thresholdValue">100-299 (below average)</span>
 						<span class="thresholdGrade f">F</span>
-						<span class="thresholdValue">Below -48</span>
-					</div>
-				</div>
-
-				<div class="tooltipSection">
-					<div class="tooltipLabel">Early Round Bonus</div>
-					<div class="tooltipText" style="margin-bottom: 0.25em;">
-						Early picks have limited upside, so a bonus is applied:
-					</div>
-					<div class="bonusList">
-						<span class="bonusRound">Round 1:</span>
-						<span>+12 bonus</span>
-						<span class="bonusRound">Round 2:</span>
-						<span>+6 bonus</span>
-						<span class="bonusRound">Round 3:</span>
-						<span>+3 bonus</span>
+						<span class="thresholdValue">Below 100 (poor)</span>
 					</div>
 				</div>
 			</div>

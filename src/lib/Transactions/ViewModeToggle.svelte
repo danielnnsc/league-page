@@ -1,7 +1,7 @@
 <script>
 	import { createEventDispatcher } from 'svelte';
 
-	export let viewMode = 'card';
+	export let viewMode = 'timeline';
 
 	const dispatch = createEventDispatcher();
 
@@ -64,10 +64,6 @@
 
 <div class="viewToggle">
 	<div class="viewButtons">
-		<button class="viewButton" class:active={viewMode === 'card'} on:click={() => setViewMode('card')}>
-			<i class="material-icons">view_agenda</i>
-			<span class="buttonLabel">Card</span>
-		</button>
 		<button class="viewButton" class:active={viewMode === 'timeline'} on:click={() => setViewMode('timeline')}>
 			<i class="material-icons">timeline</i>
 			<span class="buttonLabel">Timeline</span>

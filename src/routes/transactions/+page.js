@@ -28,7 +28,7 @@ export async function load({ url, fetch }) {
         page: 0,
         team: null,
         season: 'all',
-        view: 'card',
+        view: 'timeline',
     }
     if(show && (show == "all" || show == "trade" || show == "waiver" || show == "records" || show == "drafts")) {
         props.show = show;
@@ -45,7 +45,7 @@ export async function load({ url, fetch }) {
     if(season && (season === 'all' || !isNaN(season))) {
         props.season = season === 'all' ? 'all' : parseInt(season);
     }
-    if(view && (view === 'card' || view === 'timeline' || view === 'compact')) {
+    if(view && (view === 'timeline' || view === 'compact')) {
         props.view = view;
     }
     return props;

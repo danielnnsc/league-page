@@ -2,18 +2,13 @@
 	import Textfield from '@smui/textfield';
 	import Icon from '@smui/textfield/icon';
 	import IconButton from '@smui/icon-button';
-	import TradeTransaction from './TradeTransaction.svelte';
-	import WaiverTransaction from './WaiverTransaction.svelte';
-	import Pagination from '../Pagination.svelte';
 	import TransactionFilters from './TransactionFilters.svelte';
 	import ViewModeToggle from './ViewModeToggle.svelte';
 	import CompactView from './CompactView.svelte';
 	import TimelineView from './TimelineView.svelte';
 	import TransactionAnalytics from './TransactionAnalytics.svelte';
-	import DraftView from './DraftView.svelte';
 	import DraftCompactView from './DraftCompactView.svelte';
 	import DraftTimelineView from './DraftTimelineView.svelte';
-	import DraftTransaction from './DraftTransaction.svelte';
 	import { match } from 'fuzzyjs';
 	import { goto } from '$app/navigation';
 	import { getLeagueTransactions, loadPlayers } from '$lib/utils/helper';
@@ -23,7 +18,7 @@
 	export let totals = null;
 	export let initialTeam = null;
 	export let initialSeason = 'all';
-	export let initialViewMode = 'card';
+	export let initialViewMode = 'timeline';
 	export let drafts = [];
 
 	const oldQuery = query;
@@ -709,7 +704,7 @@
 		on:seasonChange={handleSeasonChange}
 	/>
 
-	<!-- View Mode Toggle (only show when not on Records tab) -->
+	<!-- View Mode Toggle (only show for transactions and drafts) -->
 	{#if show !== 'records'}
 		<ViewModeToggle
 			{viewMode}
@@ -717,7 +712,7 @@
 		/>
 	{/if}
 
-	<!-- Search (only show when not on Records tab - show on Drafts for player search) -->
+	<!-- Search (only show for transactions and drafts) -->
 	{#if show !== 'records'}
 		<div class="searchContainer">
 			<span class="clearPlaceholder" />
@@ -806,16 +801,7 @@
 
 	<!-- Drafts Tab -->
 	{#if show === 'drafts'}
-		{#if viewMode === 'card'}
-			<DraftView
-				{drafts}
-				{players}
-				{leagueTeamManagers}
-				{selectedTeam}
-				{selectedSeason}
-				{query}
-			/>
-		{:else if viewMode === 'timeline'}
+		{#if viewMode === 'timeline'}
 			<DraftTimelineView
 				{drafts}
 				{players}
@@ -866,21 +852,6 @@
 					No {title.toLowerCase()} found with current filters
 				{/if}
 			</p>
-		{:else if viewMode === 'card'}
-			<!-- Card View (original style) -->
-			<Pagination {perPage} total={totalTransactions} bind:page={page} target={top} scroll={false} />
-			<div class="transactionsChild">
-				{#each displayTransactions as transaction (transaction.id)}
-					{#if transaction.type === "waiver"}
-						<WaiverTransaction {players} {transaction} {leagueTeamManagers} />
-					{:else if transaction.type === "draft"}
-						<DraftTransaction pick={transaction.draftPick} {players} {leagueTeamManagers} year={transaction.season} />
-					{:else}
-						<TradeTransaction {players} {transaction} {leagueTeamManagers} />
-					{/if}
-				{/each}
-			</div>
-			<Pagination {perPage} total={totalTransactions} bind:page={page} target={top} scroll={true} />
 		{:else if viewMode === 'timeline'}
 			<!-- Timeline View -->
 			<TimelineView transactions={queryFiltered} {players} {leagueTeamManagers} perPage={20} />

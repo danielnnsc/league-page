@@ -320,6 +320,14 @@
 		font-size: 14px;
 	}
 
+	.playerThumb {
+		width: 20px;
+		height: 20px;
+		border-radius: 50%;
+		object-fit: cover;
+		flex-shrink: 0;
+	}
+
 	.bid {
 		font-weight: 700;
 		color: #fff;
@@ -549,24 +557,49 @@
 			</div>
 			<span class="time">{formatTime(transaction.date)}</span>
 		</div>
-		<div class="items">
-			{#each summary.slice(0, 6) as item}
-				{#if transaction.type === 'trade' && item.teamIndex >= 0}
-					<span class="item" style="background-color: {getTeamColor(item.teamIndex)}22; color: {getTeamColor(item.teamIndex)}; border: 1px solid {getTeamColor(item.teamIndex)}40;">
-						<i class="material-icons itemIcon">swap_horiz</i>
-						{item.name}
-						{#if item.originalOwner}
-							<span class="pickFrom">from {item.originalOwner}</span>
-						{/if}
-					</span>
-				{:else}
+		{#if transaction.type === 'trade'}
+			<!-- Trade Summary Grid -->
+			<div class="tradeGridInline">
+				{#each tradeSummary as teamData}
+					<div class="tradeTeamBoxInline">
+						<div class="tradeTeamHeaderInline" style="background-color: {getTeamColor(teamData.teamIndex)};">
+							<img src={teamData.team.avatar} alt="{teamData.team.name}" />
+							<span>{teamData.team.name} receives:</span>
+						</div>
+						<div class="tradeTeamBodyInline">
+							{#if teamData.received.length > 0}
+								{#each teamData.received as asset}
+									<div class="tradeAssetInline">
+										{#if asset.type === 'player'}
+											<img src="{getPlayerAvatar(asset.pos, asset.playerId)}" alt="" onerror="this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'" />
+											<span>{asset.name}</span>
+										{:else if asset.type === 'pick'}
+											<i class="material-icons" style="color: #9c27b0;">emoji_events</i>
+											<span>{asset.text}</span>
+										{:else if asset.type === 'faab'}
+											<i class="material-icons" style="color: #f57c00;">attach_money</i>
+											<span>${asset.amount} FAAB</span>
+										{/if}
+									</div>
+								{/each}
+							{:else}
+								<span class="emptyReceived">Nothing</span>
+							{/if}
+						</div>
+					</div>
+				{/each}
+			</div>
+		{:else}
+			<!-- Item chips for waivers/drafts -->
+			<div class="items">
+				{#each summary.slice(0, 6) as item}
 					<span class="item {item.type}">
-						{#if item.type === 'add'}
+						{#if item.playerId}
+							<img class="playerThumb" src={getPlayerAvatar(item.pos, item.playerId)} alt="" onerror="this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'" />
+						{:else if item.type === 'add'}
 							<i class="material-icons itemIcon">add_circle</i>
 						{:else if item.type === 'drop'}
 							<i class="material-icons itemIcon">remove_circle</i>
-						{:else if item.type === 'trade'}
-							<i class="material-icons itemIcon">swap_horiz</i>
 						{:else if item.type === 'pick'}
 							<i class="material-icons itemIcon">emoji_events</i>
 						{:else if item.type === 'budget'}
@@ -589,12 +622,12 @@
 							{/if}
 						{/if}
 					</span>
+				{/each}
+				{#if summary.length > 6}
+					<span class="item trade">+{summary.length - 6} more</span>
 				{/if}
-			{/each}
-			{#if summary.length > 6}
-				<span class="item trade">+{summary.length - 6} more</span>
-			{/if}
-		</div>
+			</div>
+		{/if}
 		{#if transaction.competingBids && transaction.competingBids.length > 0}
 			<div class="competingBids">
 				<span class="competingLabel">Other bids:</span>
@@ -610,18 +643,18 @@
 			</div>
 		{/if}
 
-		<!-- Expand Toggle -->
-		{#if transaction.type !== 'draft'}
+		<!-- Expand Toggle (only for waivers) -->
+		{#if transaction.type === 'waiver'}
 			<div class="expandToggle" class:expanded on:click={toggleExpand}>
 				<i class="material-icons">expand_more</i>
 				<span>{expanded ? 'Hide' : 'Details'}</span>
 			</div>
 		{/if}
 
-		<!-- Expanded Content -->
-		{#if expanded}
+		<!-- Expanded Content (only for waivers) -->
+		{#if expanded && transaction.type === 'waiver'}
 			<div class="expandedContent">
-				{#if transaction.type === 'waiver' && allBidsWithWinner.length > 0}
+				{#if allBidsWithWinner.length > 0}
 					<div class="expandedSection">
 						<div class="expandedSectionTitle">All Waiver Bids</div>
 						<div class="expandedList">
@@ -637,38 +670,6 @@
 								</div>
 							{/each}
 						</div>
-					</div>
-				{:else if transaction.type === 'trade'}
-					<div class="expandedSectionTitle">Trade Summary</div>
-					<div class="tradeGrid">
-						{#each tradeSummary as teamData}
-							<div class="tradeTeamBox">
-								<div class="tradeTeamHeader" style="background-color: {getTeamColor(teamData.teamIndex)};">
-									<img src={teamData.team.avatar} alt="{teamData.team.name}" />
-									<span>{teamData.team.name} gets:</span>
-								</div>
-								<div class="tradeTeamBody">
-									{#if teamData.received.length > 0}
-										{#each teamData.received as asset}
-											<div class="tradeAsset">
-												{#if asset.type === 'player'}
-													<img src="{getPlayerAvatar(asset.pos, asset.playerId)}" alt="" onerror="this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'" />
-													<span>{asset.name}</span>
-												{:else if asset.type === 'pick'}
-													<i class="material-icons" style="color: #9c27b0;">emoji_events</i>
-													<span>{asset.text}</span>
-												{:else if asset.type === 'faab'}
-													<i class="material-icons" style="color: #f57c00;">attach_money</i>
-													<span>${asset.amount}</span>
-												{/if}
-											</div>
-										{/each}
-									{:else}
-										<span style="color: var(--g999); font-style: italic; font-size: 0.85em;">Nothing</span>
-									{/if}
-								</div>
-							</div>
-						{/each}
 					</div>
 				{:else}
 					<!-- Regular waiver without FAAB -->

@@ -366,7 +366,7 @@
 						<td class="gamesCell">
 							{pick.gamesPlayed}
 						</td>
-						<td class="gradeCell" style="color: {getValueColor(pick.gradeValue || 0, pick.round)};">
+						<td class="gradeCell" style="color: {getValueColor(pick.gradeValue || 0)};">
 							{pick.grade}
 						</td>
 						<td class="efficiencyCell">
