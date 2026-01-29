@@ -205,7 +205,7 @@
         {#if !previous || draftCol}
             {@const pickGrade = draftCol?.player ? gradeMap[draftCol.player] : null}
             {@const cellBgStyle = analysisMode && pickGrade?.gradeValue !== null && pickGrade?.gradeValue !== undefined
-                ? `background-color: ${getValueColor(pickGrade.gradeValue)} !important;`
+                ? `background-color: ${getValueColor(pickGrade.gradeValue, pickGrade.round)} !important;`
                 : ''}
             <Cell class="draftCell{draftCol ? ' changedHands' : ''}{previous ? ` prev${players[draftCol.player].pos}` : ''}{analysisMode ? ' analysisCell' : ''}" style={cellBgStyle}>
                 <span class="draftPos{previous ? "Prev" : ""}">

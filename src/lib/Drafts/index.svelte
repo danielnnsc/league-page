@@ -91,7 +91,7 @@
                 }
                 const validPicks = skillPicks.filter(p => p.overallValue !== null);
 
-                // Use gradeValue (adjusted value with finish bonus) for team calculations
+                // Use gradeValue (includes early round bonus) for team calculations
                 const totalValue = validPicks.reduce((sum, p) => sum + (p.gradeValue || 0), 0);
                 const avgValue = validPicks.length > 0 ? Math.round((totalValue / validPicks.length) * 10) / 10 : 0;
 
