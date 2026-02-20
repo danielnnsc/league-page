@@ -12,6 +12,8 @@
         yearsObj = {};
         years = [];
 
+        if (!lRR || !currentYear || !lastYear) return;
+
         let loopYear = currentYear;
         while(loopYear >= lastYear) {
             yearsObj[loopYear] = {
@@ -29,14 +31,17 @@
             loopYear--;
         }
 
-        for(const seasonWeekRecord of seasonWeekRecords) {
-            yearsObj[seasonWeekRecord.year].weekRecords = seasonWeekRecord.seasonPointsHighs;
-            yearsObj[seasonWeekRecord.year].weekLows = seasonWeekRecord.seasonPointsLows;
-            yearsObj[seasonWeekRecord.year].blowouts = seasonWeekRecord.biggestBlowouts;
-            yearsObj[seasonWeekRecord.year].closestMatchups = seasonWeekRecord.closestMatchups;
+        if (seasonWeekRecords) {
+            for(const seasonWeekRecord of seasonWeekRecords) {
+                if (!yearsObj[seasonWeekRecord.year]) continue;
+                yearsObj[seasonWeekRecord.year].weekRecords = seasonWeekRecord.seasonPointsHighs;
+                yearsObj[seasonWeekRecord.year].weekLows = seasonWeekRecord.seasonPointsLows;
+                yearsObj[seasonWeekRecord.year].blowouts = seasonWeekRecord.biggestBlowouts;
+                yearsObj[seasonWeekRecord.year].closestMatchups = seasonWeekRecord.closestMatchups;
+            }
         }
-        
-        for(const season in transactionTotals.seasons) {
+
+        for(const season in transactionTotals?.seasons) {
             if(!yearsObj[season]) continue;
             for(const rosterID in transactionTotals.seasons[season]) {
                 yearsObj[season].tradesData.push({
@@ -52,6 +57,8 @@
         for(const rosterID in lRR) {
             const leagueManagerRecord = lRR[rosterID];
             for(const season of leagueManagerRecord.years) {
+                if (!yearsObj[season.year]) continue;
+
                 // check for ties
                 if(season.ties > 0) {
                     yearsObj[season.year].showTies = true;
@@ -165,20 +172,22 @@
     </Group>
 </div>
 
-<RecordsAndRankings
-    waiversData={years[display].waiversData}
-    tradesData={years[display].tradesData}
-    weekRecords={years[display].weekRecords}
-    weekLows={years[display].weekLows}
-    seasonLongLows={years[display].seasonLongLows}
-    seasonLongRecords={years[display].seasonLongRecords}
-    showTies={years[display].showTies}
-    winPercentages={years[display].winPercentages}
-    fptsHistories={years[display].fptsHistories}
-    lineupIQs={years[display].lineupIQs}
-    blowouts={years[display].blowouts}
-    closestMatchups={years[display].closestMatchups}
-    prefix={years[display].year}
-    {leagueTeamManagers}
-    {key}
-/>
+{#if years[display]}
+    <RecordsAndRankings
+        waiversData={years[display].waiversData}
+        tradesData={years[display].tradesData}
+        weekRecords={years[display].weekRecords}
+        weekLows={years[display].weekLows}
+        seasonLongLows={years[display].seasonLongLows}
+        seasonLongRecords={years[display].seasonLongRecords}
+        showTies={years[display].showTies}
+        winPercentages={years[display].winPercentages}
+        fptsHistories={years[display].fptsHistories}
+        lineupIQs={years[display].lineupIQs}
+        blowouts={years[display].blowouts}
+        closestMatchups={years[display].closestMatchups}
+        prefix={years[display].year}
+        {leagueTeamManagers}
+        {key}
+    />
+{/if}

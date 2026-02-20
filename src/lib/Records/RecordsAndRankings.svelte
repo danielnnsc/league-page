@@ -861,7 +861,7 @@
                     </Row>
                 </Head>
                 <Body>
-                    {#each sortedWinPercentages as winPercentage, ix (winPercentage.managerID + key)}
+                    {#each sortedWinPercentages as winPercentage, ix (winPercentage.rosterID + '-' + ix + '-' + key)}
                         <Row>
                             <Cell>{ix + 1}</Cell>
                             <Cell class="cellName" on:click={() => gotoManager({year: winPercentage.year || prefix, leagueTeamManagers, rosterID: winPercentage.rosterID, managerID: winPercentage.managerID})}>
