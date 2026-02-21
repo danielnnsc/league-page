@@ -378,6 +378,8 @@
 					{#if activeTooltip === `${team.rosterID}-overall`}
 						<div class="tooltip">
 							<div class="tooltipTitle">Overall Grade: {team.combinedGrade || team.avgGrade} ({team.combinedScore || '—'}/100)</div>
+							<div class="tooltipMeta" style="margin-bottom: 0.5em;">Weighted average of three components, normalized across all teams.</div>
+							<div class="tooltipDivider"></div>
 							<div class="tooltipRow">
 								<span class="tooltipLabel">Value</span>
 								<span class="tooltipValue">{team.valueGrade || '—'} ({team.valueScore || '—'}/100) × {COMBINED_WEIGHTS.value * 100}%</span>
@@ -390,6 +392,8 @@
 								<span class="tooltipLabel">Efficiency</span>
 								<span class="tooltipValue">{team.efficiencyGrade || '—'} ({team.efficiencyScore || '—'}/100) × {COMBINED_WEIGHTS.efficiency * 100}%</span>
 							</div>
+							<div class="tooltipDivider"></div>
+							<div class="tooltipMeta">A+: 90+ | A: 80+ | B: 65+ | C: 45+ | D: 30+ | F: &lt;30</div>
 						</div>
 					{/if}
 				</div>
@@ -413,16 +417,16 @@
 								<div class="tooltipTitle">Value Grade: {team.valueGrade || '—'}</div>
 								<div class="tooltipRow">
 									<span class="tooltipLabel">Formula</span>
-									<span class="tooltipValue">draftPos - actualFinish</span>
+									<span class="tooltipValue">Sum of positive picks only</span>
 								</div>
 								<div class="tooltipDivider"></div>
 								<div class="tooltipRow">
-									<span class="tooltipLabel">Your Avg Value</span>
-									<span class="tooltipValue">{team.avgValue >= 0 ? '+' : ''}{team.avgValue}</span>
+									<span class="tooltipLabel">Your Total Value</span>
+									<span class="tooltipValue">+{team.avgValue}</span>
 								</div>
 								<div class="tooltipRow">
 									<span class="tooltipLabel">League Range</span>
-									<span class="tooltipValue">{team.leagueMinValue} to {team.leagueMaxValue}</span>
+									<span class="tooltipValue">{team.leagueMinValue} to +{team.leagueMaxValue}</span>
 								</div>
 							</div>
 						{/if}

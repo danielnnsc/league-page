@@ -76,7 +76,7 @@
 		position: absolute;
 		top: calc(100% + 8px);
 		right: 0;
-		width: 320px;
+		width: 360px;
 		padding: 1em;
 		background-color: var(--fff);
 		border-radius: 8px;
@@ -188,39 +188,44 @@
 				</div>
 
 				<div class="tooltipSection">
-					<div class="tooltipLabel">Three Components</div>
+					<div class="tooltipLabel">Skill Positions Only</div>
 					<div class="tooltipText">
-						Team grades combine three factors:<br>
-						<strong>Value (35%)</strong> - Outperforming draft position<br>
-						<strong>Points (40%)</strong> - Total fantasy points produced<br>
-						<strong>Efficiency (25%)</strong> - Return on draft capital
+						All grades exclude K and DEF — only QB, RB, WR, TE count.
 					</div>
 				</div>
 
 				<div class="tooltipSection">
-					<div class="tooltipLabel">Efficiency Formula (ROI)</div>
+					<div class="tooltipLabel">Value (35%)</div>
 					<div class="tooltipText">
-						Base Points × Late Round Bonus<br>
-						<em>Top 12 = 12pts, Top 24 = 11pts, etc.</em><br>
-						<em>+0.2x bonus per round drafted late</em>
+						Sum of positive value picks only (sleepers).<br>
+						<em>Value = Draft Position − Actual Finish</em><br>
+						<em>Early round bonus: Rd1 +12, Rd2 +6, Rd3 +3</em><br>
+						<em>Busts (negative value) are ignored.</em>
 					</div>
 				</div>
 
 				<div class="tooltipSection">
-					<div class="tooltipLabel">Overall Grade Thresholds</div>
-					<div class="thresholdList">
-						<span class="thresholdGrade a">A+</span>
-						<span class="thresholdValue">90+ (elite draft)</span>
-						<span class="thresholdGrade a">A</span>
-						<span class="thresholdValue">80-89 (excellent)</span>
-						<span class="thresholdGrade b">B</span>
-						<span class="thresholdValue">65-79 (above average)</span>
-						<span class="thresholdGrade c">C</span>
-						<span class="thresholdValue">45-64 (average)</span>
-						<span class="thresholdGrade d">D</span>
-						<span class="thresholdValue">30-44 (below average)</span>
-						<span class="thresholdGrade f">F</span>
-						<span class="thresholdValue">Below 30 (poor)</span>
+					<div class="tooltipLabel">Points (40%)</div>
+					<div class="tooltipText">
+						Total fantasy points produced by all skill position picks.
+					</div>
+				</div>
+
+				<div class="tooltipSection">
+					<div class="tooltipLabel">Efficiency (25%)</div>
+					<div class="tooltipText">
+						ROI based on finish tier and draft round.<br>
+						<em>Base: Top 12 = 12pts, Top 24 = 11pts, ... 156+ = 0pts</em><br>
+						<em>Bonus: +0.2x per round drafted later than expected</em><br>
+						<em>ROI = Base Points × (1 + roundsLate × 0.2)</em>
+					</div>
+				</div>
+
+				<div class="tooltipSection">
+					<div class="tooltipLabel">Overall Grade</div>
+					<div class="tooltipText">
+						Weighted average normalized to 0-100 scale.<br>
+						<em>A+: 90+ | A: 80+ | B: 65+ | C: 45+ | D: 30+ | F: &lt;30</em>
 					</div>
 				</div>
 			</div>

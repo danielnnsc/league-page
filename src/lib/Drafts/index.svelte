@@ -26,6 +26,8 @@
     // View mode and filter state
     let viewMode = 'totalPoints';
     let hideUnder7Games = false;
+    let showWarningTooltip = false;
+    let showMethodologyTooltip = false;
 
     const toggleAnalysis = async (year, draftData, leagueTeamManagers, players) => {
         // Store references for later recalculation
@@ -95,9 +97,16 @@
                 }
                 const validPicks = skillPicks.filter(p => p.overallValue !== null);
 
-                // Use gradeValue (includes early round bonus) for team calculations
-                const totalValue = validPicks.reduce((sum, p) => sum + (p.gradeValue || 0), 0);
-                const avgValue = validPicks.length > 0 ? Math.round((totalValue / validPicks.length) * 10) / 10 : 0;
+                // Use positive-only gradeValue (rewards sleepers, ignores busts)
+                let positiveValueSum = 0;
+                for (const p of validPicks) {
+                    const val = p.gradeValue || 0;
+                    if (val > 0) {
+                        positiveValueSum += val;
+                    }
+                }
+                const totalValue = positiveValueSum;
+                const avgValue = totalValue;  // Keep as sum, not average
 
                 // Recalculate best/worst picks from filtered data (using gradeValue for context-aware ranking)
                 const sortedByValue = [...validPicks].sort((a, b) => (b.gradeValue || 0) - (a.gradeValue || 0));
@@ -245,6 +254,125 @@
     .warningIcon {
         font-size: 14px;
         color: #f59e0b;
+        cursor: help;
+    }
+
+    .warningWrapper {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+    }
+
+    .warningTooltip {
+        position: absolute;
+        bottom: calc(100% + 8px);
+        left: 50%;
+        transform: translateX(-50%);
+        width: 220px;
+        padding: 0.6em 0.8em;
+        background-color: #1f2937;
+        color: white;
+        font-size: 0.75em;
+        line-height: 1.4;
+        border-radius: 6px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        z-index: 1000;
+        text-align: center;
+    }
+
+    .warningTooltip::after {
+        content: '';
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        border: 6px solid transparent;
+        border-top-color: #1f2937;
+    }
+
+    .infoWrapper {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        margin-left: 0.25em;
+    }
+
+    .infoIcon {
+        font-size: 18px;
+        color: var(--g999);
+        cursor: pointer;
+        transition: color 0.15s ease;
+    }
+
+    .infoIcon:hover {
+        color: var(--blueOne);
+    }
+
+    .methodologyTooltip {
+        position: absolute;
+        top: calc(100% + 8px);
+        left: 50%;
+        transform: translateX(-50%);
+        width: 380px;
+        padding: 1em;
+        background-color: #1f2937;
+        color: white;
+        font-size: 0.8em;
+        line-height: 1.5;
+        border-radius: 8px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        z-index: 1000;
+        text-align: left;
+    }
+
+    .methodologyTooltip::after {
+        content: '';
+        position: absolute;
+        bottom: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        border: 6px solid transparent;
+        border-bottom-color: #1f2937;
+    }
+
+    .methodologyTooltip .tooltipHeader {
+        display: flex;
+        align-items: center;
+        gap: 0.5em;
+        font-weight: 600;
+        font-size: 1.1em;
+        margin-bottom: 0.75em;
+        padding-bottom: 0.5em;
+        border-bottom: 1px solid rgba(255,255,255,0.2);
+    }
+
+    .methodologyTooltip .tooltipHeader i {
+        font-size: 18px;
+        color: #60a5fa;
+    }
+
+    .methodologyTooltip .tooltipSection {
+        margin-bottom: 0.75em;
+    }
+
+    .methodologyTooltip .tooltipSection:last-child {
+        margin-bottom: 0;
+    }
+
+    .methodologyTooltip .tooltipSection strong {
+        color: #93c5fd;
+        display: block;
+        margin-bottom: 0.25em;
+    }
+
+    .methodologyTooltip .tooltipSection p {
+        margin: 0.15em 0;
+        color: rgba(255,255,255,0.85);
+    }
+
+    .methodologyTooltip .tooltipSection em {
+        color: rgba(255,255,255,0.65);
+        font-size: 0.9em;
     }
 
     .analysisSection {
@@ -399,13 +527,72 @@
 							<div class="sectionTitle">
 								<i class="material-icons">leaderboard</i>
 								Team Draft Grades
+								<span class="infoWrapper">
+									<i
+										class="material-icons infoIcon"
+										on:mouseenter={() => showMethodologyTooltip = true}
+										on:mouseleave={() => showMethodologyTooltip = false}
+										on:click={() => showMethodologyTooltip = !showMethodologyTooltip}
+									>info_outline</i>
+									{#if showMethodologyTooltip}
+										<div class="methodologyTooltip">
+											<div class="tooltipHeader">
+												<i class="material-icons">calculate</i>
+												Draft Grade Methodology
+											</div>
+
+											<div class="tooltipSection">
+												<strong>Skill Positions Only</strong>
+												<p>All grades exclude K and DEF — only QB, RB, WR, TE are counted.</p>
+											</div>
+
+											<div class="tooltipSection">
+												<strong>Value (35% weight)</strong>
+												<p>Sum of positive value picks only (sleepers).</p>
+												<p><em>Value = Draft Position − Actual Finish</em></p>
+												<p><em>Early round bonus: Rd1 +12, Rd2 +6, Rd3 +3</em></p>
+												<p><em>Busts (negative value) are ignored.</em></p>
+											</div>
+
+											<div class="tooltipSection">
+												<strong>Points (40% weight)</strong>
+												<p>Total fantasy points produced by all skill position picks.</p>
+											</div>
+
+											<div class="tooltipSection">
+												<strong>Efficiency (25% weight)</strong>
+												<p>ROI based on finish tier and draft round.</p>
+												<p><em>Base: Top 12 = 12pts, Top 24 = 11pts, ... 156+ = 0pts</em></p>
+												<p><em>Bonus: +0.2x per round drafted later than expected</em></p>
+												<p><em>ROI = Base Points × (1 + roundsLate × 0.2)</em></p>
+											</div>
+
+											<div class="tooltipSection">
+												<strong>Overall Grade</strong>
+												<p>Weighted average normalized to 0-100 scale across all teams.</p>
+												<p><em>A+: 90+ | A: 80+ | B: 65+ | C: 45+ | D: 30+ | F: &lt;30</em></p>
+											</div>
+										</div>
+									{/if}
+								</span>
 								<label class="checkboxLabel">
 									<input
 										type="checkbox"
 										checked={hideUnder7Games}
 										on:change={() => hideUnder7Games = !hideUnder7Games}
 									/>
-									<i class="material-icons warningIcon">warning</i>
+									<span class="warningWrapper">
+										<i
+											class="material-icons warningIcon"
+											on:mouseenter={() => showWarningTooltip = true}
+											on:mouseleave={() => showWarningTooltip = false}
+										>warning</i>
+										{#if showWarningTooltip}
+											<div class="warningTooltip">
+												Players with fewer than 7 games played have unreliable stats. Check this to exclude them from grade calculations.
+											</div>
+										{/if}
+									</span>
 									Hide &lt;7 games
 								</label>
 							</div>
