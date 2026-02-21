@@ -475,14 +475,14 @@
 								<div class="tooltipTitle">Efficiency Grade: {team.efficiencyGrade || '—'}</div>
 								<div class="tooltipRow">
 									<span class="tooltipLabel">Formula</span>
-									<span class="tooltipValue">Finish Quality × Value Multiplier</span>
+									<span class="tooltipValue">Base Pts × Late Round Bonus</span>
 								</div>
 								<div class="tooltipDivider"></div>
 								<div class="tooltipRow">
-									<span class="tooltipLabel">Avg Eff Score</span>
+									<span class="tooltipLabel">Avg ROI Score</span>
 									<span class="tooltipValue">{team.avgEfficiencyScore || '—'}</span>
 								</div>
-								<div class="tooltipMeta">Early picks held to higher standards</div>
+								<div class="tooltipMeta">Top 12 = 12pts, +0.2x per round late</div>
 							</div>
 						{/if}
 					</div>

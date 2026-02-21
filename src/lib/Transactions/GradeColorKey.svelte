@@ -198,11 +198,11 @@
 				</div>
 
 				<div class="tooltipSection">
-					<div class="tooltipLabel">Efficiency Formula</div>
+					<div class="tooltipLabel">Efficiency Formula (ROI)</div>
 					<div class="tooltipText">
-						Finish Quality × Position-Adjusted Multiplier<br>
-						<em>Early picks held to higher standards</em><br>
-						<em>Late-round gems properly rewarded</em>
+						Base Points × Late Round Bonus<br>
+						<em>Top 12 = 12pts, Top 24 = 11pts, etc.</em><br>
+						<em>+0.2x bonus per round drafted late</em>
 					</div>
 				</div>
 

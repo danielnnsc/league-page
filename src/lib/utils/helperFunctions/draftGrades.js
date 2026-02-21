@@ -552,6 +552,36 @@ export const calculatePickEfficiencyScore = (pick) => {
 };
 
 /**
+ * ALTERNATIVE ROI calculation (for comparison)
+ * - Base points by finish tier: top 12 = 12pts, top 24 = 11pts, etc.
+ * - Multiplier: +0.2 for each round drafted later than expected
+ */
+export const calculatePickROI = (pick) => {
+	const actualFinish = pick.actualOverallRank;
+	const draftRound = pick.round || 1;
+
+	if (!actualFinish) return 0;
+
+	// Beyond top 156 = 0 points
+	if (actualFinish > 156) return 0;
+
+	// Finish tier (1 = top 12, 2 = top 24, etc.)
+	const finishTier = Math.ceil(actualFinish / 12);
+
+	// Base points: top 12 = 12, top 24 = 11, etc. (min 1)
+	const basePoints = Math.max(1, 13 - finishTier);
+
+	// Expected round = finish tier (top 12 should be round 1, top 24 should be round 2, etc.)
+	const expectedRound = finishTier;
+
+	// Multiplier: 1 if drafted at/before expected round, +0.2 for each round later
+	const roundsLate = Math.max(0, draftRound - expectedRound);
+	const multiplier = 1 + (roundsLate * 0.2);
+
+	return basePoints * multiplier;
+};
+
+/**
  * Calculate combined grades for all teams in a draft
  * Normalizes scores across all teams and applies weights
  * @param {Object} teamGradesObj - Object with rosterID keys and team grade data
@@ -577,13 +607,14 @@ export const calculateCombinedScores = (teamGradesObj) => {
 
 		// Average efficiency score across skill picks with valid ranks
 		const picksWithRanks = skillPicks.filter(p => p.actualOverallRank);
-		let avgEfficiencyScore = 0;
+
+		let avgROIScore = 0;
 		if (picksWithRanks.length > 0) {
-			let effSum = 0;
+			let roiSum = 0;
 			for (const p of picksWithRanks) {
-				effSum += calculatePickEfficiencyScore(p);
+				roiSum += calculatePickROI(p);
 			}
-			avgEfficiencyScore = effSum / picksWithRanks.length;
+			avgROIScore = roiSum / picksWithRanks.length;
 		}
 
 		// Calculate positive-only value (only count picks that outperformed)
@@ -603,7 +634,7 @@ export const calculateCombinedScores = (teamGradesObj) => {
 			...team,
 			avgValue: positiveOnlyValue,
 			totalPoints: isFinite(totalPoints) ? totalPoints : 0,
-			avgEfficiencyScore: isFinite(avgEfficiencyScore) ? round(avgEfficiencyScore, 1) : 0
+			avgEfficiencyScore: isFinite(avgROIScore) ? round(avgROIScore, 1) : 0  // Using ROI as efficiency
 		};
 	});
 
