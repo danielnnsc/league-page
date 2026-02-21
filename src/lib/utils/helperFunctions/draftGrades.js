@@ -643,11 +643,14 @@ export const calculateCombinedScores = (teamGradesObj) => {
 		// Calculate Draft Capital
 		let totalDraftCapital = 0;
 		const totalDraftPicks = 156; // Approximate total picks in draft
+		console.log(`\n--- Draft Capital Breakdown: ${team.team?.name || `Team ${team.rosterID}`} ---`);
 		for (const p of skillPicks) {
 			// Pick 1 costs 156, Pick 156 costs 1
 			const pickCost = Math.max(1, totalDraftPicks + 1 - (p.overallPick || 1));
+			console.log(`  Pick #${p.overallPick} ${p.playerName} (${p.position}): capital = ${pickCost}`);
 			totalDraftCapital += pickCost;
 		}
+		console.log(`  Total Draft Capital: ${totalDraftCapital}`);
 
 		// OPTION 1: Position-Adjusted Points Efficiency
 		// Compare each player's points to their position's average
@@ -664,14 +667,19 @@ export const calculateCombinedScores = (teamGradesObj) => {
 		// OPTION 2: Positional Rank Efficiency
 		// Use positional finish rank - top at position = more points
 		let positionalRankScore = 0;
+		console.log(`\n--- Positional Rank Score Breakdown: ${team.team?.name || `Team ${team.rosterID}`} ---`);
 		for (const p of skillPicks) {
 			const posRank = p.actualPositionalRank;
 			if (posRank) {
 				// Top 1 = 24 pts, Top 12 = 13 pts, Top 24 = 1 pt, beyond = 0
 				const rankScore = posRank <= 24 ? (25 - posRank) : 0;
+				console.log(`  ${p.playerName} (${p.position}): positional rank = ${posRank}, rank score = ${rankScore}`);
 				positionalRankScore += rankScore;
+			} else {
+				console.log(`  ${p.playerName} (${p.position}): no positional rank, rank score = 0`);
 			}
 		}
+		console.log(`  Total Positional Rank Score: ${positionalRankScore}`);
 		const posRankEfficiency = totalDraftCapital > 0
 			? (positionalRankScore / totalDraftCapital) * 100  // Scale up for readability
 			: 0;
@@ -703,7 +711,7 @@ export const calculateCombinedScores = (teamGradesObj) => {
 			rawPtsEfficiency: isFinite(rawPtsEfficiency) ? round(rawPtsEfficiency, 2) : 0,
 			posAdjustedEfficiency: isFinite(posAdjustedEfficiency) ? round(posAdjustedEfficiency, 2) : 0,
 			posRankEfficiency: isFinite(posRankEfficiency) ? round(posRankEfficiency, 2) : 0,
-			avgEfficiencyScore: isFinite(posRankEfficiency) ? round(posRankEfficiency, 2) : 0  // Using Option 2: Positional Rank
+			avgEfficiencyScore: isFinite(positionalRankScore) ? round(positionalRankScore, 2) : 0  // Total positional rank score (not divided by capital)
 		};
 	});
 
