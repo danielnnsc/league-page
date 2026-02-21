@@ -561,10 +561,10 @@
 
 											<div class="tooltipSection">
 												<strong>Efficiency (25% weight)</strong>
-												<p>ROI based on finish tier and draft round.</p>
-												<p><em>Base: Top 12 = 12pts, Top 24 = 11pts, ... 156+ = 0pts</em></p>
-												<p><em>Bonus: +0.2x per round drafted later than expected</em></p>
-												<p><em>ROI = Base Points × (1 + roundsLate × 0.2)</em></p>
+												<p>Positional Rank Score / Draft Capital.</p>
+												<p><em>Rank Score: #1 at position = 24pts, #12 = 13pts, #24+ = 0pts</em></p>
+												<p><em>Draft Capital: Pick 1 costs 156, Pick 156 costs 1</em></p>
+												<p><em>Rewards getting top positional talent efficiently</em></p>
 											</div>
 
 											<div class="tooltipSection">

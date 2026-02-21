@@ -214,10 +214,10 @@
 				<div class="tooltipSection">
 					<div class="tooltipLabel">Efficiency (25%)</div>
 					<div class="tooltipText">
-						ROI based on finish tier and draft round.<br>
-						<em>Base: Top 12 = 12pts, Top 24 = 11pts, ... 156+ = 0pts</em><br>
-						<em>Bonus: +0.2x per round drafted later than expected</em><br>
-						<em>ROI = Base Points × (1 + roundsLate × 0.2)</em>
+						Positional Rank Score / Draft Capital.<br>
+						<em>Rank: #1 at position = 24pts, #12 = 13pts, #24+ = 0</em><br>
+						<em>Capital: Pick 1 costs 156, Pick 156 costs 1</em><br>
+						<em>Rewards drafting top positional talent efficiently</em>
 					</div>
 				</div>
 

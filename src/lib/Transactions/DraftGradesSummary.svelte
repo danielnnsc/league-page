@@ -479,14 +479,14 @@
 								<div class="tooltipTitle">Efficiency Grade: {team.efficiencyGrade || '—'}</div>
 								<div class="tooltipRow">
 									<span class="tooltipLabel">Formula</span>
-									<span class="tooltipValue">Sum of all picks' ROI</span>
+									<span class="tooltipValue">Positional Rank / Draft Capital</span>
 								</div>
 								<div class="tooltipDivider"></div>
 								<div class="tooltipRow">
-									<span class="tooltipLabel">Your Total ROI</span>
+									<span class="tooltipLabel">Your Score</span>
 									<span class="tooltipValue">{team.avgEfficiencyScore || '—'}</span>
 								</div>
-								<div class="tooltipMeta">Top 12 = 12pts, +0.2x per round late</div>
+								<div class="tooltipMeta">Pos #1 = 24pts, #12 = 13pts, #24+ = 0</div>
 							</div>
 						{/if}
 					</div>

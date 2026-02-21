@@ -591,6 +591,30 @@ export const calculateCombinedScores = (teamGradesObj) => {
 	const teams = Object.values(teamGradesObj);
 	if (teams.length === 0) return teamGradesObj;
 
+	// First pass: Calculate position averages across ALL picks in the draft
+	const positionTotals = {};
+	const positionCounts = {};
+	for (const team of teams) {
+		const skillPicks = team.picks?.filter(p => p.position !== 'K' && p.position !== 'DEF') || [];
+		for (const p of skillPicks) {
+			if (p.totalPoints && p.position) {
+				if (!positionTotals[p.position]) {
+					positionTotals[p.position] = 0;
+					positionCounts[p.position] = 0;
+				}
+				positionTotals[p.position] += p.totalPoints;
+				positionCounts[p.position]++;
+			}
+		}
+	}
+	const positionAverages = {};
+	for (const pos in positionTotals) {
+		positionAverages[pos] = positionCounts[pos] > 0
+			? positionTotals[pos] / positionCounts[pos]
+			: 0;
+	}
+	console.log('Position Averages:', positionAverages);
+
 	// Calculate raw metrics for each team
 	const teamsWithMetrics = teams.map(team => {
 		// Filter to skill positions only (exclude K and DEF)
@@ -608,16 +632,54 @@ export const calculateCombinedScores = (teamGradesObj) => {
 		// Average efficiency score across skill picks with valid ranks
 		const picksWithRanks = skillPicks.filter(p => p.actualOverallRank);
 
-		let avgROIScore = 0;
+		// Calculate Total ROI
 		let totalROI = 0;
 		if (picksWithRanks.length > 0) {
-			let roiSum = 0;
 			for (const p of picksWithRanks) {
-				roiSum += calculatePickROI(p);
+				totalROI += calculatePickROI(p);
 			}
-			avgROIScore = roiSum / picksWithRanks.length;
-			totalROI = roiSum;
 		}
+
+		// Calculate Draft Capital
+		let totalDraftCapital = 0;
+		const totalDraftPicks = 156; // Approximate total picks in draft
+		for (const p of skillPicks) {
+			// Pick 1 costs 156, Pick 156 costs 1
+			const pickCost = Math.max(1, totalDraftPicks + 1 - (p.overallPick || 1));
+			totalDraftCapital += pickCost;
+		}
+
+		// OPTION 1: Position-Adjusted Points Efficiency
+		// Compare each player's points to their position's average
+		let positionAdjustedPoints = 0;
+		for (const p of skillPicks) {
+			const posAvg = positionAverages[p.position] || 0;
+			const differential = (p.totalPoints || 0) - posAvg;
+			positionAdjustedPoints += differential;
+		}
+		const posAdjustedEfficiency = totalDraftCapital > 0
+			? (positionAdjustedPoints / totalDraftCapital) * 100  // Scale up for readability
+			: 0;
+
+		// OPTION 2: Positional Rank Efficiency
+		// Use positional finish rank - top at position = more points
+		let positionalRankScore = 0;
+		for (const p of skillPicks) {
+			const posRank = p.actualPositionalRank;
+			if (posRank) {
+				// Top 1 = 24 pts, Top 12 = 13 pts, Top 24 = 1 pt, beyond = 0
+				const rankScore = posRank <= 24 ? (25 - posRank) : 0;
+				positionalRankScore += rankScore;
+			}
+		}
+		const posRankEfficiency = totalDraftCapital > 0
+			? (positionalRankScore / totalDraftCapital) * 100  // Scale up for readability
+			: 0;
+
+		// Raw points efficiency (current)
+		const rawPtsEfficiency = totalDraftCapital > 0
+			? (totalPoints / totalDraftCapital)
+			: 0;
 
 		// Calculate positive-only value (only count picks that outperformed)
 		let positiveValueSum = 0;
@@ -636,19 +698,27 @@ export const calculateCombinedScores = (teamGradesObj) => {
 			...team,
 			avgValue: positiveOnlyValue,
 			totalPoints: isFinite(totalPoints) ? totalPoints : 0,
-			avgEfficiencyScore: isFinite(totalROI) ? round(totalROI, 1) : 0  // Using Total ROI as efficiency
+			totalROI: isFinite(totalROI) ? round(totalROI, 1) : 0,
+			totalDraftCapital: totalDraftCapital,
+			rawPtsEfficiency: isFinite(rawPtsEfficiency) ? round(rawPtsEfficiency, 2) : 0,
+			posAdjustedEfficiency: isFinite(posAdjustedEfficiency) ? round(posAdjustedEfficiency, 2) : 0,
+			posRankEfficiency: isFinite(posRankEfficiency) ? round(posRankEfficiency, 2) : 0,
+			avgEfficiencyScore: isFinite(posRankEfficiency) ? round(posRankEfficiency, 2) : 0  // Using Option 2: Positional Rank
 		};
 	});
 
-	// Debug: Show raw values to understand grade distribution
-	console.log('\n=== RAW VALUES (before normalization) ===');
+	// Debug: Compare efficiency options
+	console.log('\n=== EFFICIENCY COMPARISON ===');
 	console.table(teamsWithMetrics.map(t => ({
-		team: t.team?.name?.substring(0, 20) || `Team ${t.rosterID}`,
+		team: t.team?.name?.substring(0, 18) || `Team ${t.rosterID}`,
 		'Value': t.avgValue,
-		'Points': Math.round(t.totalPoints),
-		'ROI (Total)': t.avgEfficiencyScore
-	})).sort((a, b) => b['Points'] - a['Points']));
-	console.log('=========================================\n');
+		'RawPts/Cap': t.rawPtsEfficiency,
+		'Opt1:PosAdj': t.posAdjustedEfficiency,
+		'Opt2:PosRank': t.posRankEfficiency
+	})).sort((a, b) => b['Opt1:PosAdj'] - a['Opt1:PosAdj']));
+	console.log('\nOption 1: Position-Adjusted Points / Capital');
+	console.log('Option 2: Positional Rank Score / Capital');
+	console.log('==========================================\n');
 
 	// Find min/max for normalization (filter out non-finite values)
 	const values = teamsWithMetrics.map(t => t.avgValue).filter(v => isFinite(v));
