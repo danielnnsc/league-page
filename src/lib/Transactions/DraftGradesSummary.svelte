@@ -479,11 +479,11 @@
 								<div class="tooltipTitle">Efficiency Grade: {team.efficiencyGrade || '—'}</div>
 								<div class="tooltipRow">
 									<span class="tooltipLabel">Formula</span>
-									<span class="tooltipValue">Base Pts × Late Round Bonus</span>
+									<span class="tooltipValue">Sum of all picks' ROI</span>
 								</div>
 								<div class="tooltipDivider"></div>
 								<div class="tooltipRow">
-									<span class="tooltipLabel">Avg ROI Score</span>
+									<span class="tooltipLabel">Your Total ROI</span>
 									<span class="tooltipValue">{team.avgEfficiencyScore || '—'}</span>
 								</div>
 								<div class="tooltipMeta">Top 12 = 12pts, +0.2x per round late</div>

@@ -609,12 +609,14 @@ export const calculateCombinedScores = (teamGradesObj) => {
 		const picksWithRanks = skillPicks.filter(p => p.actualOverallRank);
 
 		let avgROIScore = 0;
+		let totalROI = 0;
 		if (picksWithRanks.length > 0) {
 			let roiSum = 0;
 			for (const p of picksWithRanks) {
 				roiSum += calculatePickROI(p);
 			}
 			avgROIScore = roiSum / picksWithRanks.length;
+			totalROI = roiSum;
 		}
 
 		// Calculate positive-only value (only count picks that outperformed)
@@ -634,9 +636,19 @@ export const calculateCombinedScores = (teamGradesObj) => {
 			...team,
 			avgValue: positiveOnlyValue,
 			totalPoints: isFinite(totalPoints) ? totalPoints : 0,
-			avgEfficiencyScore: isFinite(avgROIScore) ? round(avgROIScore, 1) : 0  // Using ROI as efficiency
+			avgEfficiencyScore: isFinite(totalROI) ? round(totalROI, 1) : 0  // Using Total ROI as efficiency
 		};
 	});
+
+	// Debug: Show raw values to understand grade distribution
+	console.log('\n=== RAW VALUES (before normalization) ===');
+	console.table(teamsWithMetrics.map(t => ({
+		team: t.team?.name?.substring(0, 20) || `Team ${t.rosterID}`,
+		'Value': t.avgValue,
+		'Points': Math.round(t.totalPoints),
+		'ROI (Total)': t.avgEfficiencyScore
+	})).sort((a, b) => b['Points'] - a['Points']));
+	console.log('=========================================\n');
 
 	// Find min/max for normalization (filter out non-finite values)
 	const values = teamsWithMetrics.map(t => t.avgValue).filter(v => isFinite(v));
