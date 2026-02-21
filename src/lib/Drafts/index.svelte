@@ -1,5 +1,5 @@
 <script>
-	import { waitForAll, calculateDraftGrades, getGradeFromValue } from '$lib/utils/helper';
+	import { waitForAll, calculateDraftGrades, calculateCombinedScores, getGradeFromValue } from '$lib/utils/helper';
     import LinearProgress from '@smui/linear-progress';
     import Button, { Label } from '@smui/button';
     import Draft from './Draft.svelte';
@@ -47,6 +47,10 @@
         loadingGrades = loadingGrades;
         try {
             const grades = await calculateDraftGrades(draftData, players, leagueTeamManagers, { viewMode });
+            // Apply combined scoring to team grades for summary cards
+            if (grades?.teamGrades) {
+                grades.teamGrades = calculateCombinedScores(grades.teamGrades);
+            }
             gradesDataCache[year] = grades;
             gradesDataCache = gradesDataCache;
         } catch (e) {

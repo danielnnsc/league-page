@@ -1,18 +1,17 @@
 <script>
-	import { getValueColor, getValueTextColor } from '$lib/utils/helper';
+	import { getGradeColor, COMBINED_WEIGHTS } from '$lib/utils/helper';
 
 	export let teamGrades = [];
 
-	const getGradeColor = (grade) => {
-		const gradeColors = {
-			'A+': '#00a894',
-			'A': '#22c55e',
-			'B': '#84cc16',
-			'C': '#eab308',
-			'D': '#f97316',
-			'F': '#ef4444'
-		};
-		return gradeColors[grade] || '#6b7280';
+	// Track tooltip visibility per card and per element
+	let activeTooltip = null; // Format: "rosterID-type" or null
+
+	const showTooltip = (rosterID, type) => {
+		activeTooltip = `${rosterID}-${type}`;
+	};
+
+	const hideTooltip = () => {
+		activeTooltip = null;
 	};
 
 	const getTeamAvatar = (team) => {
@@ -21,12 +20,29 @@
 		}
 		return 'https://sleepercdn.com/images/v2/icons/player_default.webp';
 	};
+
+	// Calculate position bar width (0-100%)
+	const getPositionBarWidth = (posData) => {
+		if (!posData || !posData.efficiency) return 0;
+		// Cap at 100%, scale efficiency (1.0 = 50%, 2.0 = 100%)
+		return Math.min(100, posData.efficiency * 50);
+	};
+
+	// Get position bar color based on efficiency
+	const getPositionBarColor = (posData) => {
+		if (!posData) return '#9ca3af';
+		const eff = posData.efficiency || 0;
+		if (eff >= 1.5) return '#059669';
+		if (eff >= 1.0) return '#84cc16';
+		if (eff >= 0.7) return '#f59e0b';
+		return '#ef4444';
+	};
 </script>
 
 <style>
 	.summaryGrid {
 		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+		grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
 		gap: 1em;
 	}
 
@@ -34,7 +50,7 @@
 		background-color: var(--fff);
 		border-radius: 10px;
 		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-		overflow: hidden;
+		overflow: visible;
 		transition: transform 0.15s ease, box-shadow 0.15s ease;
 	}
 
@@ -50,6 +66,7 @@
 		padding: 0.75em 1em;
 		background-color: var(--f5f5);
 		border-bottom: 1px solid var(--eee);
+		border-radius: 10px 10px 0 0;
 	}
 
 	.teamAvatar {
@@ -78,6 +95,10 @@
 		color: var(--g999);
 	}
 
+	.gradeBoxWrapper {
+		position: relative;
+	}
+
 	.gradeBox {
 		display: flex;
 		flex-direction: column;
@@ -89,6 +110,7 @@
 		font-weight: 700;
 		font-size: 1.2em;
 		color: white;
+		cursor: pointer;
 	}
 
 	.gradeLabel {
@@ -101,29 +123,147 @@
 		padding: 0.75em 1em;
 	}
 
-	.statsGrid {
+	/* 3-column grade boxes */
+	.gradeGrid {
 		display: grid;
-		grid-template-columns: repeat(2, 1fr);
+		grid-template-columns: repeat(3, 1fr);
 		gap: 0.5em;
 		margin-bottom: 0.75em;
 	}
 
-	.statBox {
+	.gradeStatWrapper {
+		position: relative;
+	}
+
+	.gradeStat {
 		text-align: center;
 		padding: 0.5em;
 		background-color: var(--f5f5);
 		border-radius: 6px;
+		cursor: pointer;
+		transition: background-color 0.15s ease;
 	}
 
-	.statValue {
-		font-weight: 600;
-		font-size: 0.95em;
-		color: var(--g333);
+	.gradeStat:hover {
+		background-color: var(--eee);
 	}
 
-	.statLabel {
+	.gradeStatValue {
+		font-weight: 700;
+		font-size: 1.1em;
+		padding: 0.15em 0.4em;
+		border-radius: 4px;
+		color: white;
+	}
+
+	.gradeStatLabel {
 		font-size: 0.7em;
 		color: var(--g999);
+		margin-top: 0.25em;
+	}
+
+	/* Position breakdown bars */
+	.positionSection {
+		margin-bottom: 0.75em;
+	}
+
+	.positionLabel {
+		font-size: 0.7em;
+		color: var(--g999);
+		margin-bottom: 0.35em;
+	}
+
+	.positionBars {
+		display: grid;
+		grid-template-columns: repeat(2, 1fr);
+		gap: 0.35em 0.75em;
+	}
+
+	.posBar {
+		display: flex;
+		align-items: center;
+		gap: 0.4em;
+	}
+
+	.posName {
+		font-size: 0.65em;
+		font-weight: 600;
+		color: var(--g666);
+		width: 24px;
+	}
+
+	.posBarTrack {
+		flex: 1;
+		height: 6px;
+		background-color: var(--eee);
+		border-radius: 3px;
+		overflow: hidden;
+	}
+
+	.posBarFill {
+		height: 100%;
+		border-radius: 3px;
+		transition: width 0.3s ease;
+	}
+
+	/* Tooltips */
+	.tooltip {
+		position: absolute;
+		bottom: 100%;
+		left: 50%;
+		transform: translateX(-50%);
+		background-color: #1f2937;
+		color: white;
+		padding: 0.6em 0.8em;
+		border-radius: 6px;
+		font-size: 0.75em;
+		white-space: nowrap;
+		z-index: 100;
+		margin-bottom: 8px;
+		box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+	}
+
+	.tooltip::after {
+		content: '';
+		position: absolute;
+		top: 100%;
+		left: 50%;
+		transform: translateX(-50%);
+		border: 6px solid transparent;
+		border-top-color: #1f2937;
+	}
+
+	.tooltipTitle {
+		font-weight: 600;
+		margin-bottom: 0.4em;
+		padding-bottom: 0.3em;
+		border-bottom: 1px solid rgba(255,255,255,0.2);
+	}
+
+	.tooltipRow {
+		display: flex;
+		justify-content: space-between;
+		gap: 1em;
+		margin: 0.2em 0;
+	}
+
+	.tooltipLabel {
+		color: rgba(255,255,255,0.7);
+	}
+
+	.tooltipValue {
+		font-weight: 500;
+	}
+
+	.tooltipDivider {
+		border-top: 1px solid rgba(255,255,255,0.2);
+		margin: 0.4em 0;
+	}
+
+	.tooltipMeta {
+		font-size: 0.9em;
+		color: rgba(255,255,255,0.6);
+		margin-top: 0.3em;
 	}
 
 	.highlightSection {
@@ -225,24 +365,150 @@
 					<div class="teamName">{team.team?.name || `Team ${team.rosterID}`}</div>
 					<div class="teamMeta">{team.picks.length} picks</div>
 				</div>
-				<div class="gradeBox" style="background-color: {getGradeColor(team.avgGrade)};">
-					{team.avgGrade}
-					<span class="gradeLabel">Grade</span>
+				<div class="gradeBoxWrapper">
+					<div
+						class="gradeBox"
+						style="background-color: {getGradeColor(team.combinedGrade || team.avgGrade)};"
+						on:mouseenter={() => showTooltip(team.rosterID, 'overall')}
+						on:mouseleave={hideTooltip}
+					>
+						{team.combinedGrade || team.avgGrade}
+						<span class="gradeLabel">Grade</span>
+					</div>
+					{#if activeTooltip === `${team.rosterID}-overall`}
+						<div class="tooltip">
+							<div class="tooltipTitle">Overall Grade: {team.combinedGrade || team.avgGrade} ({team.combinedScore || '—'}/100)</div>
+							<div class="tooltipRow">
+								<span class="tooltipLabel">Value</span>
+								<span class="tooltipValue">{team.valueGrade || '—'} ({team.valueScore || '—'}/100) × {COMBINED_WEIGHTS.value * 100}%</span>
+							</div>
+							<div class="tooltipRow">
+								<span class="tooltipLabel">Points</span>
+								<span class="tooltipValue">{team.pointsGrade || '—'} ({team.pointsScore || '—'}/100) × {COMBINED_WEIGHTS.points * 100}%</span>
+							</div>
+							<div class="tooltipRow">
+								<span class="tooltipLabel">Efficiency</span>
+								<span class="tooltipValue">{team.efficiencyGrade || '—'} ({team.efficiencyScore || '—'}/100) × {COMBINED_WEIGHTS.efficiency * 100}%</span>
+							</div>
+						</div>
+					{/if}
 				</div>
 			</div>
 			<div class="cardBody">
-				<div class="statsGrid">
-					<div class="statBox">
-						<div class="statValue" style="color: {team.totalValue >= 0 ? '#00a894' : '#ff2a6d'};">
-							{team.totalValue >= 0 ? '+' : ''}{team.totalValue}
+				<!-- 3 Letter Grade Boxes -->
+				<div class="gradeGrid">
+					<div class="gradeStatWrapper">
+						<div
+							class="gradeStat"
+							on:mouseenter={() => showTooltip(team.rosterID, 'value')}
+							on:mouseleave={hideTooltip}
+						>
+							<div class="gradeStatValue" style="background-color: {getGradeColor(team.valueGrade || 'C')};">
+								{team.valueGrade || '—'}
+							</div>
+							<div class="gradeStatLabel">Value</div>
 						</div>
-						<div class="statLabel">Total Value</div>
+						{#if activeTooltip === `${team.rosterID}-value`}
+							<div class="tooltip">
+								<div class="tooltipTitle">Value Grade: {team.valueGrade || '—'}</div>
+								<div class="tooltipRow">
+									<span class="tooltipLabel">Formula</span>
+									<span class="tooltipValue">draftPos - actualFinish</span>
+								</div>
+								<div class="tooltipDivider"></div>
+								<div class="tooltipRow">
+									<span class="tooltipLabel">Your Avg Value</span>
+									<span class="tooltipValue">{team.avgValue >= 0 ? '+' : ''}{team.avgValue}</span>
+								</div>
+								<div class="tooltipRow">
+									<span class="tooltipLabel">League Range</span>
+									<span class="tooltipValue">{team.leagueMinValue} to {team.leagueMaxValue}</span>
+								</div>
+							</div>
+						{/if}
 					</div>
-					<div class="statBox">
-						<div class="statValue">{team.avgValue >= 0 ? '+' : ''}{team.avgValue}</div>
-						<div class="statLabel">Avg Value</div>
+
+					<div class="gradeStatWrapper">
+						<div
+							class="gradeStat"
+							on:mouseenter={() => showTooltip(team.rosterID, 'points')}
+							on:mouseleave={hideTooltip}
+						>
+							<div class="gradeStatValue" style="background-color: {getGradeColor(team.pointsGrade || 'C')};">
+								{team.pointsGrade || '—'}
+							</div>
+							<div class="gradeStatLabel">Points</div>
+						</div>
+						{#if activeTooltip === `${team.rosterID}-points`}
+							<div class="tooltip">
+								<div class="tooltipTitle">Points Grade: {team.pointsGrade || '—'}</div>
+								<div class="tooltipRow">
+									<span class="tooltipLabel">Formula</span>
+									<span class="tooltipValue">Total fantasy points</span>
+								</div>
+								<div class="tooltipDivider"></div>
+								<div class="tooltipRow">
+									<span class="tooltipLabel">Your Total</span>
+									<span class="tooltipValue">{Math.round(team.totalPoints || 0)} pts</span>
+								</div>
+								<div class="tooltipRow">
+									<span class="tooltipLabel">League Range</span>
+									<span class="tooltipValue">{team.leagueMinPoints} to {team.leagueMaxPoints}</span>
+								</div>
+							</div>
+						{/if}
+					</div>
+
+					<div class="gradeStatWrapper">
+						<div
+							class="gradeStat"
+							on:mouseenter={() => showTooltip(team.rosterID, 'efficiency')}
+							on:mouseleave={hideTooltip}
+						>
+							<div class="gradeStatValue" style="background-color: {getGradeColor(team.efficiencyGrade || 'C')};">
+								{team.efficiencyGrade || '—'}
+							</div>
+							<div class="gradeStatLabel">Efficiency</div>
+						</div>
+						{#if activeTooltip === `${team.rosterID}-efficiency`}
+							<div class="tooltip">
+								<div class="tooltipTitle">Efficiency Grade: {team.efficiencyGrade || '—'}</div>
+								<div class="tooltipRow">
+									<span class="tooltipLabel">Formula</span>
+									<span class="tooltipValue">Finish Quality × Value Multiplier</span>
+								</div>
+								<div class="tooltipDivider"></div>
+								<div class="tooltipRow">
+									<span class="tooltipLabel">Avg Eff Score</span>
+									<span class="tooltipValue">{team.avgEfficiencyScore || '—'}</span>
+								</div>
+								<div class="tooltipMeta">Early picks held to higher standards</div>
+							</div>
+						{/if}
 					</div>
 				</div>
+
+				<!-- Position Performance Bars -->
+				{#if team.positionBreakdown && Object.keys(team.positionBreakdown).length > 0}
+					<div class="positionSection">
+						<div class="positionLabel">Position Performance</div>
+						<div class="positionBars">
+							{#each ['QB', 'RB', 'WR', 'TE'] as pos}
+								{#if team.positionBreakdown[pos]}
+									<div class="posBar">
+										<span class="posName">{pos}</span>
+										<div class="posBarTrack">
+											<div
+												class="posBarFill"
+												style="width: {getPositionBarWidth(team.positionBreakdown[pos])}%; background-color: {getPositionBarColor(team.positionBreakdown[pos])};"
+											></div>
+										</div>
+									</div>
+								{/if}
+							{/each}
+						</div>
+					</div>
+				{/if}
 
 				<div class="highlightSection">
 					{#if team.bestPick}

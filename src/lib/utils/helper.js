@@ -18,7 +18,7 @@ import { getBrackets } from './helperFunctions/leagueBrackets';
 import { getBlogPosts, generateParagraph } from './helperFunctions/getBlogPosts';
 import { getLeagueStandings } from './helperFunctions/leagueStandings';
 import { getPlayerSeasonStats, getOverallRankings, getPositionalRankings } from './helperFunctions/playerSeasonStats';
-import { calculateDraftGrades, calculateOwnerDraftHistory, getGradeFromValue, getValueColor, getValueTextColor } from './helperFunctions/draftGrades';
+import { calculateDraftGrades, calculateOwnerDraftHistory, getGradeFromValue, getValueColor, getValueTextColor, getGradeColor, calculateCombinedScores, COMBINED_WEIGHTS, COMBINED_THRESHOLDS } from './helperFunctions/draftGrades';
 
 export {
     enableBlog,
@@ -65,4 +65,8 @@ export {
     getGradeFromValue,
     getValueColor,
     getValueTextColor,
+    getGradeColor,
+    calculateCombinedScores,
+    COMBINED_WEIGHTS,
+    COMBINED_THRESHOLDS,
 }

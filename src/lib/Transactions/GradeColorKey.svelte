@@ -184,40 +184,43 @@
 			<div class="tooltip" on:mouseenter={() => showTooltip = true} on:mouseleave={() => showTooltip = false}>
 				<div class="tooltipTitle">
 					<i class="material-icons">calculate</i>
-					How Grades Are Calculated
+					How Team Grades Are Calculated
 				</div>
 
 				<div class="tooltipSection">
-					<div class="tooltipLabel">Score Formula</div>
+					<div class="tooltipLabel">Three Components</div>
 					<div class="tooltipText">
-						Score = Draft Value + Finish Bonus<br>
-						<em>Draft Value</em> = Pick # - Finish #<br>
-						<em>Finish Bonus</em> = (Total Picks - Finish #) × 2.5
+						Team grades combine three factors:<br>
+						<strong>Value (35%)</strong> - Outperforming draft position<br>
+						<strong>Points (40%)</strong> - Total fantasy points produced<br>
+						<strong>Efficiency (25%)</strong> - Return on draft capital
 					</div>
 				</div>
 
 				<div class="tooltipSection">
-					<div class="tooltipLabel">Why This Formula?</div>
+					<div class="tooltipLabel">Efficiency Formula</div>
 					<div class="tooltipText">
-						Rewards both outperforming draft position AND actual impact.
-						A late-round sleeper who becomes a starter gets credit for both.
-						An early-round hit who performs as expected is properly valued.
+						Finish Quality × Position-Adjusted Multiplier<br>
+						<em>Early picks held to higher standards</em><br>
+						<em>Late-round gems properly rewarded</em>
 					</div>
 				</div>
 
 				<div class="tooltipSection">
-					<div class="tooltipLabel">Grade Thresholds</div>
+					<div class="tooltipLabel">Overall Grade Thresholds</div>
 					<div class="thresholdList">
+						<span class="thresholdGrade a">A+</span>
+						<span class="thresholdValue">90+ (elite draft)</span>
 						<span class="thresholdGrade a">A</span>
-						<span class="thresholdValue">460+ (elite picks)</span>
+						<span class="thresholdValue">80-89 (excellent)</span>
 						<span class="thresholdGrade b">B</span>
-						<span class="thresholdValue">400-459 (very good)</span>
+						<span class="thresholdValue">65-79 (above average)</span>
 						<span class="thresholdGrade c">C</span>
-						<span class="thresholdValue">300-399 (average)</span>
+						<span class="thresholdValue">45-64 (average)</span>
 						<span class="thresholdGrade d">D</span>
-						<span class="thresholdValue">100-299 (below average)</span>
+						<span class="thresholdValue">30-44 (below average)</span>
 						<span class="thresholdGrade f">F</span>
-						<span class="thresholdValue">Below 100 (poor)</span>
+						<span class="thresholdValue">Below 30 (poor)</span>
 					</div>
 				</div>
 			</div>

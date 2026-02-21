@@ -1,5 +1,5 @@
 <script>
-	import { calculateDraftGrades } from '$lib/utils/helper';
+	import { calculateDraftGrades, calculateCombinedScores } from '$lib/utils/helper';
 	import DraftGradeFilters from './DraftGradeFilters.svelte';
 	import DraftGradesTable from './DraftGradesTable.svelte';
 	import DraftGradesSummary from './DraftGradesSummary.svelte';
@@ -46,6 +46,10 @@
 				viewMode,
 				minGames: 0
 			});
+			// Apply combined scoring to team grades for summary cards
+			if (grades?.teamGrades) {
+				grades.teamGrades = calculateCombinedScores(grades.teamGrades);
+			}
 			gradesData = grades;
 		} catch (e) {
 			console.error('Failed to calculate draft grades:', e);

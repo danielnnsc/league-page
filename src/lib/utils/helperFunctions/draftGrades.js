@@ -450,3 +450,221 @@ export const calculateOwnerDraftHistory = async (drafts, players, leagueTeamMana
 
 	return ownerHistory;
 };
+
+// ============================================================================
+// TEAM SUMMARY CARD GRADING (Combined System)
+// These functions are used ONLY for the draft summary cards, not the draft board
+// ============================================================================
+
+/**
+ * Weights for combining the three grade components
+ */
+export const COMBINED_WEIGHTS = {
+	value: 0.35,
+	points: 0.40,
+	efficiency: 0.25
+};
+
+/**
+ * Thresholds for combined overall grade (0-100 scale)
+ */
+export const COMBINED_THRESHOLDS = {
+	'A+': 90,
+	'A': 80,
+	'B': 65,
+	'C': 45,
+	'D': 30,
+	'F': 0
+};
+
+/**
+ * Thresholds for efficiency grade (0-200 scale due to 2x multiplier max)
+ */
+export const EFFICIENCY_THRESHOLDS = {
+	'A': 80,
+	'B': 60,
+	'C': 40,
+	'D': 20,
+	'F': 0
+};
+
+/**
+ * Get color for a letter grade
+ */
+export const getGradeColor = (grade) => {
+	const gradeColors = {
+		'A+': '#059669',
+		'A': '#059669',
+		'B': '#84cc16',
+		'C': '#f59e0b',
+		'D': '#f87171',
+		'F': '#dc2626'
+	};
+	return gradeColors[grade] || '#9ca3af';
+};
+
+/**
+ * Get letter grade from a normalized score (0-100)
+ */
+export const getGradeFromScore = (score, thresholds = COMBINED_THRESHOLDS) => {
+	if (thresholds['A+'] !== undefined && score >= thresholds['A+']) return 'A+';
+	if (score >= thresholds['A']) return 'A';
+	if (score >= thresholds['B']) return 'B';
+	if (score >= thresholds['C']) return 'C';
+	if (score >= thresholds['D']) return 'D';
+	return 'F';
+};
+
+/**
+ * Calculate finish quality based on actual finish rank (0-100)
+ * Better finishes = higher quality
+ */
+export const calculateFinishQuality = (actualFinish) => {
+	if (!actualFinish) return 0;
+	if (actualFinish <= 12) return 100;
+	if (actualFinish <= 24) return 85;
+	if (actualFinish <= 50) return 60;
+	if (actualFinish <= 100) return 30;
+	return 0;
+};
+
+/**
+ * Calculate position-relative value multiplier (0.5x - 2.0x)
+ * Early picks are held to higher standards, late picks get credit for any production
+ */
+export const calculateValueMultiplier = (value, draftPosition) => {
+	const positionFactor = Math.sqrt(draftPosition);
+	const adjustedValue = value / positionFactor;
+	const multiplier = 1 + (adjustedValue / 25);
+	return Math.max(0.5, Math.min(2.0, multiplier));
+};
+
+/**
+ * Calculate efficiency score for a single pick
+ * Combines finish quality with position-relative value multiplier
+ */
+export const calculatePickEfficiencyScore = (pick) => {
+	const finishQuality = calculateFinishQuality(pick.actualOverallRank);
+	const value = pick.overallValue || 0;
+	const multiplier = calculateValueMultiplier(value, pick.overallPick || 1);
+	const score = finishQuality * multiplier;
+	return isNaN(score) ? 0 : round(score, 1);
+};
+
+/**
+ * Calculate combined grades for all teams in a draft
+ * Normalizes scores across all teams and applies weights
+ * @param {Object} teamGradesObj - Object with rosterID keys and team grade data
+ * @returns {Object} - Same structure with added combined grade fields
+ */
+export const calculateCombinedScores = (teamGradesObj) => {
+	const teams = Object.values(teamGradesObj);
+	if (teams.length === 0) return teamGradesObj;
+
+	// Calculate raw metrics for each team
+	const teamsWithMetrics = teams.map(team => {
+		// Filter to skill positions only (exclude K and DEF)
+		const skillPicks = team.picks?.filter(p => p.position !== 'K' && p.position !== 'DEF') || [];
+
+		// Total points from skill position picks (handle undefined/NaN)
+		let totalPoints = 0;
+		for (const p of skillPicks) {
+			const pts = Number(p.totalPoints);
+			if (isFinite(pts)) {
+				totalPoints += pts;
+			}
+		}
+
+		// Average efficiency score across skill picks with valid ranks
+		const picksWithRanks = skillPicks.filter(p => p.actualOverallRank);
+		let avgEfficiencyScore = 0;
+		if (picksWithRanks.length > 0) {
+			let effSum = 0;
+			for (const p of picksWithRanks) {
+				effSum += calculatePickEfficiencyScore(p);
+			}
+			avgEfficiencyScore = effSum / picksWithRanks.length;
+		}
+
+		// Calculate positive-only value (only count picks that outperformed)
+		let positiveValueSum = 0;
+		let positiveValueCount = 0;
+		for (const p of skillPicks) {
+			const val = p.gradeValue || 0;  // gradeValue includes early round bonus
+			if (val > 0) {
+				positiveValueSum += val;
+				positiveValueCount++;
+			}
+		}
+		// Use total positive value (rewards finding more sleepers, ignores busts)
+		const positiveOnlyValue = positiveValueSum;
+
+		return {
+			...team,
+			avgValue: positiveOnlyValue,
+			totalPoints: isFinite(totalPoints) ? totalPoints : 0,
+			avgEfficiencyScore: isFinite(avgEfficiencyScore) ? round(avgEfficiencyScore, 1) : 0
+		};
+	});
+
+	// Find min/max for normalization (filter out non-finite values)
+	const values = teamsWithMetrics.map(t => t.avgValue).filter(v => isFinite(v));
+	const points = teamsWithMetrics.map(t => t.totalPoints).filter(v => isFinite(v));
+	const efficiencies = teamsWithMetrics.map(t => t.avgEfficiencyScore).filter(v => isFinite(v));
+
+	// Provide defaults if arrays are empty
+	const minValue = values.length > 0 ? Math.min(...values) : 0;
+	const maxValue = values.length > 0 ? Math.max(...values) : 0;
+	const minPoints = points.length > 0 ? Math.min(...points) : 0;
+	const maxPoints = points.length > 0 ? Math.max(...points) : 0;
+	const minEff = efficiencies.length > 0 ? Math.min(...efficiencies) : 0;
+	const maxEff = efficiencies.length > 0 ? Math.max(...efficiencies) : 0;
+
+	// Calculate normalized scores and grades for each team
+	const result = {};
+	for (const team of teamsWithMetrics) {
+		// Normalize to 0-100 scale
+		const valueScore = maxValue !== minValue
+			? ((team.avgValue - minValue) / (maxValue - minValue)) * 100
+			: 50;
+		const pointsScore = maxPoints !== minPoints
+			? ((team.totalPoints - minPoints) / (maxPoints - minPoints)) * 100
+			: 50;
+		const efficiencyScore = maxEff !== minEff
+			? ((team.avgEfficiencyScore - minEff) / (maxEff - minEff)) * 100
+			: 50;
+
+		// Calculate weighted combined score
+		const combinedScore =
+			(valueScore * COMBINED_WEIGHTS.value) +
+			(pointsScore * COMBINED_WEIGHTS.points) +
+			(efficiencyScore * COMBINED_WEIGHTS.efficiency);
+
+		// Get letter grades
+		const valueGrade = getGradeFromScore(valueScore);
+		const pointsGrade = getGradeFromScore(pointsScore);
+		const efficiencyGrade = getGradeFromScore(efficiencyScore);
+		const combinedGrade = getGradeFromScore(combinedScore);
+
+		result[team.rosterID] = {
+			...team,
+			// Normalized scores (0-100)
+			valueScore: round(valueScore, 1),
+			pointsScore: round(pointsScore, 1),
+			efficiencyScore: round(efficiencyScore, 1),
+			combinedScore: round(combinedScore, 1),
+			// Letter grades
+			valueGrade,
+			pointsGrade,
+			efficiencyGrade,
+			combinedGrade,
+			// League context for tooltips
+			leagueMinValue: round(minValue, 1),
+			leagueMaxValue: round(maxValue, 1),
+			leagueMinPoints: round(minPoints),
+			leagueMaxPoints: round(maxPoints)
+		};
+	}
+
+	return result;
+};
